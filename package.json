@@ -4,7 +4,7 @@
   "description": "get secrets from a secrets vault and inject them into the running environment",
   "main": "index.js",
   "author": "Mark C Allen (@markcallen)",
-  "license": "Apache-2.0",
+  "license": "MIT",
   "private": false,
   "scripts": {
     "prebuild": "node -p \"'export const LIB_VERSION = ' + JSON.stringify(require('./package.json').version) + ';'\" > src/version.ts",
@@ -12,17 +12,16 @@
     "postbuild": "chmod 755 ./dist/index.js",
     "lint": "eslint . --ext .ts",
     "prettier:fix": "npx prettier --write .",
-    "prettier:check": "npx prettier --check .",
-    "start:dev": "nodemon"
+    "prettier:check": "npx prettier --check ."
   },
   "devDependencies": {
+    "@types/debug": "^4.1.7",
     "@types/node": "^18.11.9",
     "@typescript-eslint/eslint-plugin": "^5.43.0",
     "@typescript-eslint/parser": "^5.43.0",
     "eslint": "^8.27.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-prettier": "^4.2.1",
-    "nodemon": "^2.0.20",
     "prettier": "^2.7.1",
     "rimraf": "^3.0.2",
     "ts-node": "^10.9.1",
@@ -30,7 +29,8 @@
   },
   "dependencies": {
     "aws-sdk": "^2.1257.0",
-    "commander": "^9.4.1"
+    "commander": "^9.4.1",
+    "debug": "^4.3.4"
   },
   "bin": {
     "env-secrets": "./dist/index.js"
