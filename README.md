@@ -13,3 +13,23 @@ Use debug-js pass in env-secrets for the main application and env-secrets:<vault
 ```
 DEBUG=env-secrets,env-secrets:secretsmanager npx ts-node src/index.ts aws -s local/sample -r ca-central-1 -p marka -- env
 ```
+
+## Publishing
+
+Login into npm
+
+```
+npm Login
+```
+
+Try a dry run:
+
+```
+npm run release -- patch --dry-run
+```
+
+Run:
+
+```
+npm run release -- patch
+```
