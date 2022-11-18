@@ -4,6 +4,8 @@
   "description": "get secrets from a secrets vault and inject them into the running environment",
   "main": "index.js",
   "author": "Mark C Allen (@markcallen)",
+  "repository": "markcallen/env-secrets",
+  "homepage": "https://github.com/markcallen/env-secrets",
   "license": "MIT",
   "private": false,
   "scripts": {
