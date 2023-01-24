@@ -9,8 +9,7 @@
   "license": "MIT",
   "private": false,
   "scripts": {
-    "prebuild": "node -p \"'export const LIB_VERSION = ' + JSON.stringify(require('./package.json').version) + ';'\" > src/version.ts",
-    "build": "rimraf ./dist && tsc -b",
+    "build": "rimraf ./dist && tsc -b src",
     "postbuild": "chmod 755 ./dist/index.js",
     "lint": "eslint . --ext .ts",
     "release": "release-it",
