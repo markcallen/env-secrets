@@ -19,7 +19,7 @@ DEBUG=env-secrets,env-secrets:secretsmanager npx ts-node src/index.ts aws -s loc
 Login into npm
 
 ```
-npm Login
+npm login
 ```
 
 Try a dry run:
