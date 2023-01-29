@@ -32,7 +32,7 @@
   },
   "dependencies": {
     "aws-sdk": "^2.1287.0",
-    "commander": "^9.4.1",
+    "commander": "^9.5.0",
     "debug": "^4.3.4"
   },
   "bin": {
