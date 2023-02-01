@@ -8,8 +8,22 @@ Install node
 
 ## Installation
 
+Globally
+
 ```
 npm install -g env-secrets
+```
+
+Project specific
+
+```
+npm install env-secrets
+```
+
+when using project specific run using npx
+
+```
+npx env-secrets ...
 ```
 
 ## Usage
@@ -29,7 +43,18 @@ env-secrets aws -s <secret name> -r <region> -p <profile> -- <program to run>
 example:
 
 ```
-env-secrets aws -s local/sample -r ca-central-1 -p marka -- env
+env-secrets aws -s local/sample -r us-east-1 -p marka -- env
+```
+
+Create a Secret using AWS cli
+
+```
+aws secretsmanager create-secret \
+    --region us-east-1 \
+    --profile marka \
+    --name local/sample \
+    --description "local/sample secret" \
+    --secret-string "{\"user\":\"marka\",\"password\":\"mypassword\"}"
 ```
 
 ## Debug
@@ -38,7 +63,7 @@ Uses debug-js to show debug logs by passing in env-secrets for the main applicat
 and env-secrets:<vault> for vault specific debugging
 
 ```
-DEBUG=env-secrets,env-secrets:secretsmanager npx ts-node src/index.ts aws -s local/sample -r ca-central-1 -p marka -- env
+DEBUG=env-secrets,env-secrets:secretsmanager npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
 ```
 
 ## Publishing
