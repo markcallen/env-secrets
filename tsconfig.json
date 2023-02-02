@@ -3,9 +3,8 @@
     "rootDir": ".",
     "outDir": ".",
     "resolveJsonModule": true,
+    "esModuleInterop": true,
     "composite": true
   },
-  "files": [
-    "package.json"
-  ]
+  "files": ["package.json"]
 }
