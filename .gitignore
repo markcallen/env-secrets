@@ -1,4 +1,7 @@
+# node files
 dist/
 node_modules/
+tsconfig.tsbuildinfo
 
+# env files
 .env
