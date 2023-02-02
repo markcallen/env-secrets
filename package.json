@@ -9,6 +9,7 @@
   "license": "MIT",
   "private": false,
   "scripts": {
+    "prepare": "husky install",
     "build": "rimraf ./dist && tsc -b src",
     "postbuild": "chmod 755 ./dist/index.js",
     "lint": "eslint . --ext .ts,.js",
