@@ -12,7 +12,7 @@ interface secretsmanagerType {
 const checkConnection = async () => {
   const sts = new AWS.STS();
 
-  const myPromise = new Promise((resolve, reject) => {
+  const getCallerPromise = new Promise((resolve, reject) => {
     sts.getCallerIdentity({}, (err, data) => {
       if (err) reject(err);
       else {
@@ -24,7 +24,7 @@ const checkConnection = async () => {
   let value;
   let err;
 
-  await myPromise
+  await getCallerPromise
     .then((v) => {
       value = v;
     })
@@ -34,6 +34,7 @@ const checkConnection = async () => {
 
   if (err) {
     console.error(err);
+    return false;
   }
   debug(value);
 
@@ -47,22 +48,22 @@ export const secretsmanager = async (options: secretsmanagerType) => {
     AWS_SECRET_ACCESS_KEY: awsSecretAccessKey
   } = process.env;
   if (profile) {
-    console.log(`Using profile: ${profile}`);
+    debug(`Using profile: ${profile}`);
     const credentials = new AWS.SharedIniFileCredentials({
       profile
     });
     AWS.config.credentials = credentials;
   } else if (awsAccessKeyId && awsSecretAccessKey) {
-    console.log('Using environment variables');
+    debug('Using environment variables');
   } else {
-    console.log('Using profile: default');
+    debug('Using profile: default');
   }
 
   if (region) {
     AWS.config.update({ region });
   }
   if (!AWS.config.region) {
-    console.log('no region set');
+    debug('no region set');
   }
 
   const connected = await checkConnection();
@@ -97,5 +98,7 @@ export const secretsmanager = async (options: secretsmanagerType) => {
     }
 
     return {};
+  } else {
+    console.error('Unable to connect to AWS');
   }
 };
