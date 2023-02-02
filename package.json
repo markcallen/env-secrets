@@ -11,7 +11,7 @@
   "scripts": {
     "build": "rimraf ./dist && tsc -b src",
     "postbuild": "chmod 755 ./dist/index.js",
-    "lint": "eslint . --ext .ts",
+    "lint": "eslint . --ext .ts,.js",
     "release": "release-it",
     "prettier:fix": "npx prettier --write .",
     "prettier:check": "npx prettier --check .",
