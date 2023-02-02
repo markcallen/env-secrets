@@ -42,11 +42,6 @@
     "commander": "^9.5.0",
     "debug": "^4.3.4"
   },
-  "husky": {
-    "hooks": {
-      "pre-commit": "npx lint-staged"
-    }
-  },
   "bin": {
     "env-secrets": "./dist/index.js"
   }
