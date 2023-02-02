@@ -1,6 +1,12 @@
 name: Unit Tests
 
-on: [push, pull_request]
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
 
 jobs:
   build:
@@ -21,6 +27,9 @@ jobs:
 
       - name: Install dependencies
         run: npm install
+
+      - name: Build
+        run: npm run build
 
       - name: Run the tests
         run: npm test -- --coverage
