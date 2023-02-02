@@ -11,6 +11,7 @@ const debug = Debug('env-secrets');
 
 const program = new Command();
 
+// main program
 program
   .name('env-secrets')
   .description(
@@ -18,6 +19,7 @@ program
   )
   .version(LIB_VERSION);
 
+// aws secretsmanager
 program
   .command('aws')
   .description('get secrets from AWS secrets manager')
