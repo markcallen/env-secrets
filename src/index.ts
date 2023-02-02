@@ -29,7 +29,7 @@ program
     let env = await secretsmanager(options);
     env = Object.assign({}, process.env, env);
     debug(env);
-    if (program) {
+    if (program && program.length > 0) {
       debug(`${program[0]} ${program.slice(1)}`);
       spawn(program[0], program.slice(1), {
         stdio: 'inherit',
