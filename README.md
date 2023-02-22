@@ -85,3 +85,13 @@ Run:
 ```
 npm run release -- patch
 ```
+
+## License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+## Contact
+
+Your Name - [@markcallen](https://mastodon.social/@markcallen) - mark@markcallen.com
+
+Project Link: [https://github.com/markcallen/env-secrets](https://github.com/markcallen/env-secrets)
