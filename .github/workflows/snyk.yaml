@@ -1,0 +1,27 @@
+name: Synk analysis
+
+on: push
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run Snyk to check for vulnerabilities
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+      - name: Notify failures
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_LINK_NAMES: true
+          SLACK_MESSAGE:
+            # prettier-ignore
+            "hey @${{ github.actor }}, @mark, sorry to let you know you broke the build"
+          SLACK_CHANNEL: feed-github
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_ICON: https://avatars.githubusercontent.com/u/82425418?s=200&v=4
+          SLACK_TITLE: 'Failed: cld-cli to dev :fire:'
+          SLACK_USERNAME: cld-cli-bot
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
