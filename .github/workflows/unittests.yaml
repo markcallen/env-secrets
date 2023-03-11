@@ -33,3 +33,14 @@ jobs:
 
       - name: Run the tests
         run: npm test -- --coverage
+
+      - name: Notify failures
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_LINK_NAMES: true
+          SLACK_MESSAGE:
+            # prettier-ignore
+            "hey @${{ github.actor }}, @mark, sorry to let you know you broke the build"
+          SLACK_CHANNEL: feed-github
+          SLACK_COLOR: ${{ job.status }}

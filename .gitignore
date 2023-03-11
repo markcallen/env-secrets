@@ -4,4 +4,4 @@ node_modules/
 tsconfig.tsbuildinfo
 
 # env files
-.env
+.env.*
