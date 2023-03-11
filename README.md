@@ -57,10 +57,36 @@ aws secretsmanager create-secret \
     --secret-string "{\"user\":\"marka\",\"password\":\"mypassword\"}"
 ```
 
-## Debug
+## Development
+
+Setup node using [nvm](https://github.com/nvm-sh/nvm). Or use node 18.x.
+
+```
+nvm use
+```
+
+Install yarn
+
+```
+npm install -y yarn
+```
+
+Setup
+
+```
+yarn
+```
+
+Run
+
+```
+npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
+```
+
+### Debug
 
 Uses debug-js to show debug logs by passing in env-secrets for the main application
-and env-secrets:<vault> for vault specific debugging
+and env-secrets:{vault} for vault specific debugging
 
 ```
 DEBUG=env-secrets,env-secrets:secretsmanager npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
