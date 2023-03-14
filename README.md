@@ -125,6 +125,6 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ## Contact
 
-Your Name - [@markcallen](https://www.linkedin.com/in/markcallen/) - mark@markcallen.com
+Your Name - [@markcallen](https://www.linkedin.com/in/markcallen/)
 
 Project Link: [https://github.com/markcallen/env-secrets](https://github.com/markcallen/env-secrets)
