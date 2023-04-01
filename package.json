@@ -39,7 +39,7 @@
     "typescript": "^4.9.5"
   },
   "dependencies": {
-    "aws-sdk": "^2.1326.0",
+    "aws-sdk": "^2.1348.0",
     "commander": "^9.5.0",
     "debug": "^4.3.4"
   },
