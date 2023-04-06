@@ -22,6 +22,6 @@ jobs:
           SLACK_CHANNEL: feed-github
           SLACK_COLOR: ${{ job.status }}
           SLACK_ICON: https://avatars.githubusercontent.com/u/82425418?s=200&v=4
-          SLACK_TITLE: 'Failed: cld-cli to dev :fire:'
-          SLACK_USERNAME: cld-cli-bot
+          SLACK_TITLE: 'Failed: env-secrets to dev :fire:'
+          SLACK_USERNAME: env-secrets-bot
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
