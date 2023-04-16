@@ -25,4 +25,4 @@ LATEST=$1
 
 echo **Full Changelog**: https://github.com/${REPO}/compare/${LAST}...${LATEST}
 
-git log --pretty="- %s" ${LAST}..${LATEST}
+git log --pretty="- %s" ${LAST}..HEAD
