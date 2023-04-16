@@ -1,8 +1,6 @@
 #!/bin/bash
 #
 
-#url="git@github.com:nval-tap/nval-web-app.git"
-#url=https://github.com/nval-tap/nval-web-app
 url=$(git config --get remote.origin.url)
 
 re="^(https|git)(:\/\/|@)([^\/:]+)[\/:]([^\/:]+)\/(.+)(\.git)?$"
