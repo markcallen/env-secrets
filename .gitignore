@@ -5,3 +5,6 @@ tsconfig.tsbuildinfo
 
 # env files
 .env.*
+
+# npmrc
+.npmrc
