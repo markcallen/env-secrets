@@ -51,6 +51,9 @@
       "prettier --write ."
     ]
   },
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
   "bin": {
     "env-secrets": "./dist/index.js"
   }
