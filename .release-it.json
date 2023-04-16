@@ -3,7 +3,8 @@
     "commitMessage": "chore: release v${version}"
   },
   "github": {
-    "release": false
+    "release": false,
+    "releaseNotes": "./generate-release-notes.sh ${tagName}"
   },
   "npm": {
     "publish": false

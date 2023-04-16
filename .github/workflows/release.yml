@@ -1,0 +1,51 @@
+---
+name: Github Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    if: ${{ github.ref == 'refs/heads/main' }}
+    name: Create Github Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone Repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: git config
+        run: |
+          git config user.name "${GITHUB_ACTOR}"
+          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18.14.0
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install Node.js dependencies
+        run: yarn
+
+      - name: Github release
+        run: npm run release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Notify failures
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_LINK_NAMES: true
+          SLACK_MESSAGE:
+            # prettier-ignore
+            "hey @${{ github.actor }}, @mark, sorry to let you know you broke the build"
+          SLACK_CHANNEL: feed-github
+          SLACK_COLOR: ${{ job.status }}
+          SLACK_ICON: https://avatars.githubusercontent.com/u/82425418?s=200&v=4
+          SLACK_TITLE: 'Failed: cld-cli to dev :fire:'
+          SLACK_USERNAME: cld-cli-bot
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
