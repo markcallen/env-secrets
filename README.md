@@ -49,10 +49,6 @@ env-secrets aws -s <secret name> -r <region> -p <profile> -- <program to run>
 
 example:
 
-```
-env-secrets aws -s local/sample -r us-east-1 -p marka -- env
-```
-
 Create a Secret using AWS cli
 
 ```
@@ -62,6 +58,10 @@ aws secretsmanager create-secret \
     --name local/sample \
     --description "local/sample secret" \
     --secret-string "{\"user\":\"marka\",\"password\":\"mypassword\"}"
+```
+
+```
+env-secrets aws -s local/sample -r us-east-1 -p marka -- echo \${user}/\${password}
 ```
 
 ## Development
