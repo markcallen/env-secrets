@@ -4,6 +4,9 @@ name: Github Release
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   deploy:
     if: ${{ github.ref == 'refs/heads/main' }}
@@ -30,9 +33,8 @@ jobs:
         run: yarn
 
       - name: Github release
-        run: npm run release
+        run: yarn release patch
         env:
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Notify failures

@@ -3,10 +3,10 @@
     "commitMessage": "chore: release v${version}"
   },
   "github": {
-    "release": false,
+    "release": true,
     "releaseNotes": "./generate-release-notes.sh ${tagName}"
   },
   "npm": {
-    "publish": false
+    "publish": true
   }
 }
