@@ -42,6 +42,15 @@
     "commander": "^9.5.0",
     "debug": "^4.3.4"
   },
+  "lint-staged": {
+    "*.{ts,js}": [
+      "prettier --write .",
+      "eslint --fix ."
+    ],
+    "*.{json,md,yaml}": [
+      "prettier --write ."
+    ]
+  },
   "bin": {
     "env-secrets": "./dist/index.js"
   }
