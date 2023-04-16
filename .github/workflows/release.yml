@@ -36,7 +36,7 @@ jobs:
         run: yarn build
 
       - name: Github release
-        run: yarn release patch
+        run: yarn release patch --ci
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
