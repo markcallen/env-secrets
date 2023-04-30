@@ -56,14 +56,14 @@ Create a Secret using AWS cli
 ```
 aws secretsmanager create-secret \
     --region us-east-1 \
-    --profile marka \
+    --profile testuser \
     --name local/sample \
     --description "local/sample secret" \
-    --secret-string "{\"user\":\"marka\",\"password\":\"mypassword\"}"
+    --secret-string "{\"user\":\"testuser\",\"password\":\"mypassword\"}"
 ```
 
 ```
-env-secrets aws -s local/sample -r us-east-1 -p marka -- echo \${user}/\${password}
+env-secrets aws -s local/sample -r us-east-1 -p testuser -- echo \${user}/\${password}
 ```
 
 ## Development
@@ -89,7 +89,7 @@ yarn
 Run
 
 ```
-npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
+npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p testuser -- env
 ```
 
 ### Debug
@@ -98,7 +98,7 @@ Uses debug-js to show debug logs by passing in env-secrets for the main applicat
 and env-secrets:{vault} for vault specific debugging
 
 ```
-DEBUG=env-secrets,env-secrets:secretsmanager npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
+DEBUG=env-secrets,env-secrets:secretsmanager npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p testuser -- env
 ```
 
 ## Publishing
