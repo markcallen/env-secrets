@@ -35,6 +35,8 @@ npx env-secrets ...
 
 ## Usage
 
+How to setup access to AWS [docs/AWS.md](docs/AWS.md)
+
 AWS
 
 ```
