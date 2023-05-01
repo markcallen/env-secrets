@@ -8,3 +8,6 @@ tsconfig.tsbuildinfo
 
 # npmrc
 .npmrc
+
+# yarn
+yarn-error.log
