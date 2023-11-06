@@ -38,7 +38,7 @@
     "typescript": "^4.9.5"
   },
   "dependencies": {
-    "aws-sdk": "^2.1484.0",
+    "aws-sdk": "^2.1488.0",
     "commander": "^9.5.0",
     "debug": "^4.3.4"
   },
