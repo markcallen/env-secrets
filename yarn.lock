@@ -937,10 +937,10 @@
   resolved "https://registry.npmjs.org/@types/ms/-/ms-0.7.31.tgz"
   integrity sha512-iiUgKzV9AuaEkZqkOLDIvlQiL6ltuZd9tGcW3gwpnX8JbuiuhFlEGmmFXEXkN50Cvq7Os88IY2v0dkDqXYWVgA==
 
-"@types/node@*", "@types/node@^18.19.35":
-  version "18.19.35"
-  resolved "https://registry.yarnpkg.com/@types/node/-/node-18.19.35.tgz#d7a5e97455327a08152ed271df0268d9384e44e9"
-  integrity sha512-n+WiqynRake4DDX2tPh4NTxu4dA7BgmsaGKMRc/htuPZBi7w9FkVgSOWU/+92vVEYMz3QOWUr2AwHev9X2XiTg==
+"@types/node@*", "@types/node@^18.19.39":
+  version "18.19.39"
+  resolved "https://registry.yarnpkg.com/@types/node/-/node-18.19.39.tgz#c316340a5b4adca3aee9dcbf05de385978590593"
+  integrity sha512-nPwTRDKUctxw3di5b4TfT3I0sWDiWoPQCZjXhvdkINntwr8lcoVCKsTgnXeRubKIlfnV+eN/HYk6Jb40tbcEAQ==
   dependencies:
     undici-types "~5.26.4"
 
