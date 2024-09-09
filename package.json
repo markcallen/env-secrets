@@ -40,7 +40,7 @@
   "dependencies": {
     "aws-sdk": "^2.1687.0",
     "commander": "^9.5.0",
-    "debug": "^4.3.6"
+    "debug": "^4.3.7"
   },
   "lint-staged": {
     "*.{ts,js}": [
