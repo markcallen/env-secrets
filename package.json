@@ -56,5 +56,8 @@
   },
   "bin": {
     "env-secrets": "./dist/index.js"
+  },
+  "engines": {
+    "node": "^16.14.0 || >=18.0.0"
   }
 }
