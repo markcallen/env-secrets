@@ -14,3 +14,14 @@ updates:
       - dependency-name: 'fs-extra'
       - dependency-name: '*'
         update-types: ['version-update:semver-major']
+
+  # Maintain dependencies for GitHub Actions
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+    pull-request-branch-name:
+      separator: '-'
+    labels:
+      - 'github-actions'
+      - 'dependencies'
