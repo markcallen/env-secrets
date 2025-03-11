@@ -60,6 +60,16 @@ aws secretsmanager create-secret \
     --secret-string "{\"user\":\"marka\",\"password\":\"mypassword\"}"
 ```
 
+List the secret using AWS cli
+
+```
+aws secretsmanager get-secret-value \
+    --region us-east-1 \
+    --profile marka \
+    --secret-id  local/sample \
+    --query SecretString
+```
+
 ```
 env-secrets aws -s local/sample -r us-east-1 -p marka -- echo \${user}/\${password}
 ```
