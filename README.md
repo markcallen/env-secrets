@@ -76,7 +76,7 @@ env-secrets aws -s local/sample -r us-east-1 -p marka -- echo \${user}/\${passwo
 
 ## Development
 
-Setup node using [nvm](https://github.com/nvm-sh/nvm). Or use node 18.x.
+Setup node using [nvm](https://github.com/nvm-sh/nvm). Or use node 20 (LTS).
 
 ```
 nvm use
