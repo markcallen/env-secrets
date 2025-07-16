@@ -99,6 +99,14 @@ Run
 npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
 ```
 
+### Devpod
+
+Create a devpod, this one uses a kubernetes provider
+
+```
+devpod up --id env-secretes-dev --provider kubernetes --ide cursor git@github.com:markcallen/env-secrets.git
+```
+
 ### Debug
 
 Uses debug-js to show debug logs by passing in env-secrets for the main application
