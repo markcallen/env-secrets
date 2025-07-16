@@ -11,3 +11,6 @@ tsconfig.tsbuildinfo
 
 # yarn
 yarn-error.log
+
+# coverage
+coverage/

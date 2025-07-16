@@ -16,7 +16,9 @@
     "release": "release-it",
     "prettier:fix": "npx prettier --write .",
     "prettier:check": "npx prettier --check .",
-    "test": "npm run build && jest"
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "jest __tests__",
+    "test:e2e": "npm run build && jest __e2e__"
   },
   "devDependencies": {
     "@types/debug": "^4.1.12",
