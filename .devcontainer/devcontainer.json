@@ -12,7 +12,8 @@
         "esbenp.prettier-vscode",
         "ms-vscode.vscode-typescript-next",
         "eamodio.gitlens",
-        "streetsidesoftware.code-spell-checker"
+        "streetsidesoftware.code-spell-checker",
+        "orta.vscode-jest"
       ],
       "settings": {
         "editor.formatOnSave": true,
