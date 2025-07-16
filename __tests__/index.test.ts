@@ -27,7 +27,7 @@ function cli(args, cwd): Promise<Cli> {
       (error, stdout, stderr) => {
         resolve({
           code: error && error.code ? error.code : 0,
-          error,
+          error: error || new Error(),
           stdout,
           stderr
         });
