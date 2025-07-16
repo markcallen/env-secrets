@@ -18,6 +18,7 @@
     "prettier:check": "npx prettier --check .",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "jest __tests__",
+    "test:unit:coverage": "jest __tests__ --coverage",
     "test:e2e": "npm run build && jest __e2e__"
   },
   "devDependencies": {
