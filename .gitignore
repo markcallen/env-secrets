@@ -4,10 +4,13 @@ node_modules/
 tsconfig.tsbuildinfo
 
 # env files
-.env.*
+.env*
 
 # npmrc
 .npmrc
 
 # yarn
 yarn-error.log
+
+# coverage
+coverage/

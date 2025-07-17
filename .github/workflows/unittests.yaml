@@ -9,12 +9,12 @@ on:
       - main
 
 jobs:
-  build:
+  unit-tests:
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        node-version: [16.x, 18.x, 20.x]
+        node-version: [18.x, 20.x, 22.x, 24.x]
 
     steps:
       - name: Checkout repository
@@ -26,13 +26,82 @@ jobs:
           node-version: ${{ matrix.node-version }}
 
       - name: Install dependencies
-        run: yarn
+        run: yarn --ignore-scripts --frozen-lockfile
 
       - name: Build
         run: yarn build
 
       - name: Run the tests
-        run: yarn test --coverage
+        run: yarn test:unit
+
+      - name: Notify failures
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_LINK_NAMES: true
+          SLACK_MESSAGE:
+            # prettier-ignore
+            "hey @${{ github.actor }}, @mark, sorry to let you know you broke the build"
+          SLACK_CHANNEL: feed-github
+          SLACK_COLOR: ${{ job.status }}
+
+  coverage:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - name: Install dependencies
+        run: yarn --ignore-scripts --frozen-lockfile
+
+      - name: Build
+        run: yarn build
+
+      - name: Run the tests
+        run: yarn test:unit:coverage
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Notify failures
+        if: failure()
+        uses: rtCamp/action-slack-notify@v2
+        env:
+          SLACK_LINK_NAMES: true
+          SLACK_MESSAGE:
+            # prettier-ignore
+            "hey @${{ github.actor }}, @mark, sorry to let you know you broke the build"
+          SLACK_CHANNEL: feed-github
+          SLACK_COLOR: ${{ job.status }}
+
+  e2e:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+
+      - name: Install dependencies
+        run: yarn --ignore-scripts --frozen-lockfile
+
+      - name: Build
+        run: yarn build
+
+      - name: Run the tests
+        run: yarn test:e2e
 
       - name: Notify failures
         if: failure()
