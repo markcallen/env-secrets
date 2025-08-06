@@ -1,4 +1,9 @@
-import AWS from 'aws-sdk';
+import {
+  SecretsManagerClient,
+  GetSecretValueCommand
+} from '@aws-sdk/client-secrets-manager';
+import { STSClient, GetCallerIdentityCommand } from '@aws-sdk/client-sts';
+import { fromIni } from '@aws-sdk/credential-providers';
 import Debug from 'debug';
 
 const debug = Debug('env-secrets:secretsmanager');
@@ -9,36 +14,18 @@ interface secretsmanagerType {
   region?: string;
 }
 
-const checkConnection = async () => {
-  const sts = new AWS.STS();
+const checkConnection = async (region?: string) => {
+  const stsClient = new STSClient({ region });
+  const command = new GetCallerIdentityCommand({});
 
-  const getCallerPromise = new Promise((resolve, reject) => {
-    sts.getCallerIdentity({}, (err, data) => {
-      if (err) reject(err);
-      else {
-        resolve(data);
-      }
-    });
-  });
-
-  let value;
-  let err;
-
-  await getCallerPromise
-    .then((v) => {
-      value = v;
-    })
-    .catch((e) => {
-      err = e;
-    });
-
-  if (err) {
+  try {
+    const data = await stsClient.send(command);
+    debug(data);
+    return true;
+  } catch (err) {
     console.error(err);
     return false;
   }
-  debug(value);
-
-  return !!value;
 };
 
 export const secretsmanager = async (options: secretsmanagerType) => {
@@ -47,37 +34,38 @@ export const secretsmanager = async (options: secretsmanagerType) => {
     AWS_ACCESS_KEY_ID: awsAccessKeyId,
     AWS_SECRET_ACCESS_KEY: awsSecretAccessKey
   } = process.env;
+
+  let credentials;
   if (profile) {
     debug(`Using profile: ${profile}`);
-    const credentials = new AWS.SharedIniFileCredentials({
-      profile
-    });
-    AWS.config.credentials = credentials;
+    credentials = fromIni({ profile });
   } else if (awsAccessKeyId && awsSecretAccessKey) {
     debug('Using environment variables');
+    credentials = undefined; // Will use environment variables automatically
   } else {
     debug('Using profile: default');
+    credentials = fromIni({ profile: 'default' });
   }
 
-  if (region) {
-    AWS.config.update({ region });
-  }
-  if (!AWS.config.region) {
+  const config = {
+    region,
+    credentials
+  };
+
+  if (!config.region) {
     debug('no region set');
   }
 
-  const connected = await checkConnection();
+  const connected = await checkConnection(region);
 
   if (connected) {
-    const sm = new AWS.SecretsManager();
+    const client = new SecretsManagerClient(config);
 
     try {
-      const response = await sm
-        .getSecretValue({
-          SecretId: secret
-        })
-        .promise();
-
+      const command = new GetSecretValueCommand({
+        SecretId: secret
+      });
+      const response = await client.send(command);
       const secretvalue = response.SecretString;
 
       try {
@@ -88,9 +76,9 @@ export const secretsmanager = async (options: secretsmanagerType) => {
         console.error(err);
       }
     } catch (err: any) {
-      if (err && err.code === 'ResourceNotFoundException') {
+      if (err && err.name === 'ResourceNotFoundException') {
         console.error(`${secret} not found`);
-      } else if (err && err.code === 'ConfigError') {
+      } else if (err && err.name === 'ConfigError') {
         console.error(err.message);
       } else {
         console.error(err);
@@ -100,5 +88,6 @@ export const secretsmanager = async (options: secretsmanagerType) => {
     return {};
   } else {
     console.error('Unable to connect to AWS');
+    return {};
   }
 };
