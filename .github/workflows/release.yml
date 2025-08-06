@@ -3,6 +3,20 @@ name: Release and Publish
 
 on:
   workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type (patch/minor/major)'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: 'patch'
+        required: true
+
+permissions:
+  contents: write
+  packages: read
 
 jobs:
   release:
@@ -11,7 +25,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Clone Repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -21,9 +35,9 @@ jobs:
           git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
 
       - name: Set up Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: 18.14.0
+          node-version: 20.18.3
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install Node.js dependencies
@@ -33,10 +47,10 @@ jobs:
         run: yarn build
 
       - name: Github release
-        run: yarn release patch --ci
+        run: yarn release ${{ inputs.release_type }} --ci
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Notify failures
         if: failure()

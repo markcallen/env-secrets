@@ -1,27 +1,24 @@
 name: Synk analysis
 
-on: push
+on:
+  pull_request_target:
+  push:
+    branches:
+      - main
 
 jobs:
   security:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Run Snyk to check for vulnerabilities
         uses: snyk/actions/node@master
+        continue-on-error: true # To make sure that SARIF upload gets called
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      - name: Notify failures
-        if: failure()
-        uses: rtCamp/action-slack-notify@v2
-        env:
-          SLACK_LINK_NAMES: true
-          SLACK_MESSAGE:
-            # prettier-ignore
-            "hey @${{ github.actor }}, @mark, sorry to let you know you broke the build"
-          SLACK_CHANNEL: feed-github
-          SLACK_COLOR: ${{ job.status }}
-          SLACK_ICON: https://avatars.githubusercontent.com/u/82425418?s=200&v=4
-          SLACK_TITLE: 'Failed: env-secrets to dev :fire:'
-          SLACK_USERNAME: env-secrets-bot
-          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+        with:
+          args: --sarif-file-output=snyk.sarif
+      - name: Upload result to GitHub Code Scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: snyk.sarif
