@@ -65,12 +65,26 @@ npx env-secrets ...
 
 ## Usage
 
+For detailed AWS setup instructions, see [AWS Configuration Guide](docs/AWS.md).
+
 ### AWS Secrets Manager
 
 Retrieve secrets from AWS Secrets Manager and inject them as environment variables:
 
 ```bash
 env-secrets aws -s <secret-name> -r <region> -p <profile> -- <program-to-run>
+```
+
+#### Quick Example
+
+```bash
+# Create a secret
+aws secretsmanager create-secret \
+    --name my-app-secrets \
+    --secret-string '{"DATABASE_URL":"postgres://user:pass@localhost:5432/db","API_KEY":"abc123"}'
+
+# Use the secret in your application
+env-secrets aws -s my-app-secrets -r us-east-1 -- node app.js
 ```
 
 #### Parameters
@@ -87,26 +101,14 @@ env-secrets aws -s <secret-name> -r <region> -p <profile> -- <program-to-run>
 ```bash
 aws secretsmanager create-secret \
     --region us-east-1 \
-    --profile marka \
+    --profile testuser \
     --name local/sample \
     --description "local/sample secret" \
-    --secret-string "{\"user\":\"marka\",\"password\":\"mypassword\"}"
+    --secret-string "{\"user\":\"testuser\",\"password\":\"mypassword\"}"
 ```
 
-2. **List the secret using AWS CLI:**
-
-```bash
-aws secretsmanager get-secret-value \
-    --region us-east-1 \
-    --profile marka \
-    --secret-id local/sample \
-    --query SecretString
 ```
-
-3. **Run a command with injected secrets:**
-
-```bash
-env-secrets aws -s local/sample -r us-east-1 -p marka -- echo \${user}/\${password}
+env-secrets aws -s local/sample -r us-east-1 -p testuser -- echo \${user}/\${password}
 ```
 
 4. **Run a Node.js application with secrets:**
@@ -195,7 +197,7 @@ yarn
 
 ### Running in Development
 
-```bash
+```
 npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
 ```
 
@@ -207,35 +209,11 @@ The application uses `debug-js` for logging. Enable debug logs by setting the `D
 # Debug main application
 DEBUG=env-secrets npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
 
-# Debug vault-specific operations
+```
+
 DEBUG=env-secrets,env-secrets:secretsmanager npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
-```
 
-### Devpod Setup
-
-Create a devpod using Kubernetes provider:
-
-```bash
-devpod up --id env-secretes-dev --provider kubernetes --ide cursor git@github.com:markcallen/env-secrets.git
-```
-
-## Testing
-
-Run the test suite:
-
-```bash
-# Run all tests
-npm test
-
-# Run unit tests only
-npm run test:unit
-
-# Run unit tests with coverage
-npm run test:unit:coverage
-
-# Run end-to-end tests
-npm run test:e2e
-```
+````
 
 ## Publishing
 
@@ -243,7 +221,7 @@ npm run test:e2e
 
 ```bash
 npm login
-```
+````
 
 2. **Dry run release:**
 
