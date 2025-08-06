@@ -15,11 +15,33 @@ A Node.js CLI tool that retrieves secrets from vaults and injects them as enviro
 - 🚀 Run any command with injected secrets
 - 🔍 Debug logging support
 - 📦 Works globally or project-specific
+- 🛡️ Secure credential handling
+- 🔄 JSON secret parsing
+
+## Quick Start
+
+1. **Install the tool:**
+
+   ```bash
+   npm install -g env-secrets
+   ```
+
+2. **Run a command with secrets:**
+
+   ```bash
+   env-secrets aws -s my-secret-name -r us-east-1 -- echo "Hello, ${USER_NAME}!"
+   ```
+
+3. **Run your application with secrets:**
+   ```bash
+   env-secrets aws -s my-app-secrets -r us-west-2 -- node app.js
+   ```
 
 ## Prerequisites
 
 - Node.js 18.0.0 or higher
 - AWS CLI (for AWS Secrets Manager integration)
+- AWS credentials configured (via AWS CLI, environment variables, or IAM roles)
 
 ## Installation
 
@@ -97,6 +119,59 @@ env-secrets aws -s my-app-secrets -r us-west-2 -- node app.js
 
 ```bash
 env-secrets aws -s local/sample -r us-east-1 -p marka -- env | grep -E "(user|password)"
+```
+
+6. **Use with Docker containers:**
+
+```bash
+env-secrets aws -s docker-secrets -r us-east-1 -- docker run -e DATABASE_URL -e API_KEY my-app
+```
+
+## Security Considerations
+
+- 🔐 **Credential Management**: The tool respects AWS credential precedence (environment variables, IAM roles, profiles)
+- 🛡️ **Secret Exposure**: Secrets are only injected into the child process environment, not logged
+- 🔒 **Network Security**: Uses AWS SDK's built-in security features for API calls
+- 📝 **Audit Trail**: AWS CloudTrail logs all Secrets Manager API calls
+- 🚫 **No Persistence**: Secrets are not stored locally or cached
+
+## Troubleshooting
+
+### Common Issues
+
+1. **"Unable to connect to AWS"**
+
+   - Verify AWS credentials are configured correctly
+   - Check if the specified region is valid
+   - Ensure network connectivity to AWS services
+
+2. **"Secret not found"**
+
+   - Verify the secret name exists in the specified region
+   - Check if you have permissions to access the secret
+   - Ensure the secret name is correct (case-sensitive)
+
+3. **"ConfigError"**
+
+   - Verify AWS profile configuration in `~/.aws/credentials`
+   - Check if environment variables are set correctly
+   - Ensure IAM role permissions if using EC2/ECS
+
+4. **Environment variables not injected**
+   - Verify the secret contains valid JSON
+   - Check if the secret is accessible
+   - Use debug mode to troubleshoot: `DEBUG=env-secrets env-secrets aws ...`
+
+### Debug Mode
+
+Enable debug logging to troubleshoot issues:
+
+```bash
+# Debug main application
+DEBUG=env-secrets env-secrets aws -s my-secret -r us-east-1 -- env
+
+# Debug vault-specific operations
+DEBUG=env-secrets,env-secrets:secretsmanager env-secrets aws -s my-secret -r us-east-1 -- env
 ```
 
 ## Development
@@ -184,12 +259,23 @@ npm run release -- patch
 
 ## Contributing
 
+We welcome contributions! Please follow these steps:
+
 1. Fork the repository
-2. Create a feature branch
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
 3. Make your changes
 4. Add tests for new functionality
-5. Run the test suite
-6. Submit a pull request
+5. Run the test suite (`npm test`)
+6. Commit your changes (`git commit -m 'Add amazing feature'`)
+7. Push to the branch (`git push origin feature/amazing-feature`)
+8. Open a Pull Request
+
+### Development Guidelines
+
+- Follow the existing code style (ESLint + Prettier)
+- Add tests for new functionality
+- Update documentation for new features
+- Ensure all tests pass before submitting
 
 ## License
 
@@ -200,3 +286,7 @@ Distributed under the MIT License. See `LICENSE` for more information.
 Mark C Allen - [@markcallen](https://www.linkedin.com/in/markcallen/)
 
 Project Link: [https://github.com/markcallen/env-secrets](https://github.com/markcallen/env-secrets)
+
+## Changelog
+
+See [GitHub Releases](https://github.com/markcallen/env-secrets/releases) for a complete changelog.
