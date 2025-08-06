@@ -3,6 +3,16 @@ name: Release and Publish
 
 on:
   workflow_dispatch:
+    inputs:
+      release_type:
+        description: 'Release type (patch/minor/major)'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: 'patch'
+        required: true
 
 permissions:
   contents: write
@@ -37,7 +47,7 @@ jobs:
         run: yarn build
 
       - name: Github release
-        run: yarn release patch --ci
+        run: yarn release ${{ inputs.release_type }} --ci
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
