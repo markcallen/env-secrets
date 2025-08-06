@@ -24,6 +24,7 @@
       }
     }
   },
-  "postCreateCommand": "yarn install",
+  "postStartCommand": ".devcontainer/post-start.sh",
+  "postAttachCommand": "yarn install",
   "remoteUser": "node"
 }
