@@ -65,14 +65,9 @@ npx env-secrets ...
 
 ## Usage
 
-<<<<<<< HEAD
 How to setup access to AWS [docs/AWS.md](docs/AWS.md)
 
-# AWS
-
 ### AWS Secrets Manager
-
-> > > > > > > main
 
 Retrieve secrets from AWS Secrets Manager and inject them as environment variables:
 
@@ -100,19 +95,7 @@ aws secretsmanager create-secret \
     --secret-string "{\"user\":\"testuser\",\"password\":\"mypassword\"}"
 ```
 
-2. **List the secret using AWS CLI:**
-
-```bash
-aws secretsmanager get-secret-value \
-    --region us-east-1 \
-    --profile marka \
-    --secret-id local/sample \
-    --query SecretString
 ```
-
-3. **Run a command with injected secrets:**
-
-```bash
 env-secrets aws -s local/sample -r us-east-1 -p marka -- echo \${user}/\${password}
 ```
 
@@ -202,7 +185,7 @@ yarn
 
 ### Running in Development
 
-```bash
+```
 npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
 ```
 
@@ -214,35 +197,11 @@ The application uses `debug-js` for logging. Enable debug logs by setting the `D
 # Debug main application
 DEBUG=env-secrets npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
 
-# Debug vault-specific operations
+```
+
 DEBUG=env-secrets,env-secrets:secretsmanager npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
-```
 
-### Devpod Setup
-
-Create a devpod using Kubernetes provider:
-
-```bash
-devpod up --id env-secretes-dev --provider kubernetes --ide cursor git@github.com:markcallen/env-secrets.git
-```
-
-## Testing
-
-Run the test suite:
-
-```bash
-# Run all tests
-npm test
-
-# Run unit tests only
-npm run test:unit
-
-# Run unit tests with coverage
-npm run test:unit:coverage
-
-# Run end-to-end tests
-npm run test:e2e
-```
+````
 
 ## Publishing
 
@@ -250,7 +209,7 @@ npm run test:e2e
 
 ```bash
 npm login
-```
+````
 
 2. **Dry run release:**
 
