@@ -65,7 +65,7 @@ npx env-secrets ...
 
 ## Usage
 
-How to setup access to AWS [docs/AWS.md](docs/AWS.md)
+For detailed AWS setup instructions, see [AWS Configuration Guide](docs/AWS.md).
 
 ### AWS Secrets Manager
 
@@ -73,6 +73,18 @@ Retrieve secrets from AWS Secrets Manager and inject them as environment variabl
 
 ```bash
 env-secrets aws -s <secret-name> -r <region> -p <profile> -- <program-to-run>
+```
+
+#### Quick Example
+
+```bash
+# Create a secret
+aws secretsmanager create-secret \
+    --name my-app-secrets \
+    --secret-string '{"DATABASE_URL":"postgres://user:pass@localhost:5432/db","API_KEY":"abc123"}'
+
+# Use the secret in your application
+env-secrets aws -s my-app-secrets -r us-east-1 -- node app.js
 ```
 
 #### Parameters
@@ -96,7 +108,7 @@ aws secretsmanager create-secret \
 ```
 
 ```
-env-secrets aws -s local/sample -r us-east-1 -p marka -- echo \${user}/\${password}
+env-secrets aws -s local/sample -r us-east-1 -p testuser -- echo \${user}/\${password}
 ```
 
 4. **Run a Node.js application with secrets:**
