@@ -1,6 +1,9 @@
 {
   "name": "Node.js Development",
-  "image": "mcr.microsoft.com/devcontainers/javascript-node:1-20-bullseye",
+  "build": {
+    "dockerfile": "../Dockerfile",
+    "context": ".."
+  },
   "features": {
     "ghcr.io/devcontainers/features/git:1": {},
     "ghcr.io/devcontainers/features/github-cli:1": {}
@@ -11,8 +14,6 @@
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
         "ms-vscode.vscode-typescript-next",
-        "eamodio.gitlens",
-        "streetsidesoftware.code-spell-checker",
         "orta.vscode-jest"
       ],
       "settings": {
@@ -25,6 +26,5 @@
     }
   },
   "postStartCommand": ".devcontainer/post-start.sh",
-  "postAttachCommand": "yarn install",
-  "remoteUser": "node"
+  "postAttachCommand": "yarn install"
 }
