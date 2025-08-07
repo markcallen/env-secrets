@@ -211,6 +211,60 @@ DEBUG=env-secrets npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p m
 DEBUG=env-secrets,env-secrets:secretsmanager npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
 ```
 
+### LocalStack Development
+
+For local development without AWS, you can use LocalStack to emulate AWS services.
+
+1. **Install LocalStack:**
+
+If you've started a devcontainer then localstack is already installed and has access to your hosts docker.
+
+For local development use docker compose.
+
+For kubernetes you can install it via the helm chart:
+
+```
+helm repo add localstack-repo https://helm.localstack.cloud
+helm upgrade --install localstack localstack-repo/localstack --namespace localstack --create-namespace
+```
+
+1. **Start LocalStack:**
+
+To use localstack from within a devcontainer run:
+
+```
+localstack start -d
+```
+
+For local development you can start it with docker compose.
+
+```
+docker compose up -d
+```
+
+3. **Configure AWS CLI for LocalStack:**
+
+Set up your AWS CLI to work with LocalStack by creating a profile:
+
+export AWS_ACCESS_KEY_ID=test
+export AWS_SECRET_ACCESS_KEY=test
+export AWS_DEFAULT_REGION=us-east-1
+
+awslocal secretsmanager create-secret \
+ --name my-secret-name \
+ --secret-string '{"username": "admin", "password": "hunter2"}'
+
+awslocal secretsmanager list-secrets
+
+awslocal secretsmanager get-secret-value \
+ --secret-id my-secret-name
+
+alias awslocal="AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test aws --endpoint-url=http://localhost:4566"
+
+for k8s
+
+AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test aws --endpoint-url=http://localstack.localstack:4566 secretsmanager list-secrets --region us-east-1
+
 ### Devpod Setup
 
 Create a devpod using Kubernetes provider:
