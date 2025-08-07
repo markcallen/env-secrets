@@ -248,14 +248,16 @@ npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
 
 The application uses `debug-js` for logging. Enable debug logs by setting the `DEBUG` environment variable:
 
-```bash
-# Debug main application
-DEBUG=env-secrets npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
+Debug just env-secrets
 
+```bash
+DEBUG=env-secrets npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
 ```
 
-DEBUG=env-secrets,env-secrets:secretsmanager npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
+Debug env-secrets and the secretsmanager vault
 
+```
+DEBUG=env-secrets,env-secrets:secretsmanager npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
 ```
 
 ### LocalStack Development
@@ -365,7 +367,7 @@ awslocal secretsmanager list-secrets
 awslocal secretsmanager get-secret-value \
  --secret-id local/sample
 
-````
+```
 
 ### Devpod Setup
 
@@ -373,7 +375,7 @@ Create a devpod using Kubernetes provider:
 
 ```bash
 devpod up --id env-secretes-dev --provider kubernetes --ide cursor git@github.com:markcallen/env-secrets.git
-````
+```
 
 ## Testing
 
