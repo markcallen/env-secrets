@@ -98,6 +98,8 @@ env-secrets aws -s my-app-secrets -r us-east-1 -- node app.js
 
 1. **Create a secret using AWS CLI:**
 
+Using a profile:
+
 ```bash
 aws secretsmanager create-secret \
     --region us-east-1 \
@@ -107,8 +109,49 @@ aws secretsmanager create-secret \
     --secret-string "{\"user\":\"testuser\",\"password\":\"mypassword\"}"
 ```
 
+Using env vars
+
+```bash
+aws secretsmanager create-secret \
+    --region us-east-1 \
+    --name local/sample \
+    --description "local/sample secret" \
+    --secret-string "{\"user\":\"marka\",\"password\":\"mypassword\"}"
 ```
-env-secrets aws -s local/sample -r us-east-1 -p testuser -- echo \${user}/\${password}
+
+2. **List the secret using AWS CLI:**
+
+Using a profile:
+
+```bash
+aws secretsmanager get-secret-value \
+    --region us-east-1 \
+    --profile marka \
+    --secret-id local/sample \
+    --query SecretString
+```
+
+Using env vars:
+
+```bash
+aws secretsmanager get-secret-value \
+    --region us-east-1 \
+    --secret-id local/sample \
+    --query SecretString
+```
+
+3. **Run a command with injected secrets:**
+
+Using a profile:
+
+```bash
+env-secrets aws -s local/sample -r us-east-1 -p marka -- echo \${user}/\${password}
+```
+
+Using env vars:
+
+```bash
+env-secrets aws -s local/sample -r us-east-1 -- echo \${user}/\${password}
 ```
 
 4. **Run a Node.js application with secrets:**
@@ -205,15 +248,152 @@ npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
 
 The application uses `debug-js` for logging. Enable debug logs by setting the `DEBUG` environment variable:
 
+Debug just env-secrets
+
 ```bash
-# Debug main application
 DEBUG=env-secrets npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
+```
+
+Debug env-secrets and the secretsmanager vault
+
+```
+DEBUG=env-secrets,env-secrets:secretsmanager npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
+```
+
+### LocalStack Development
+
+For local development without AWS, you can use LocalStack to emulate AWS services.
+
+1. **Install LocalStack:**
+
+If you've started a devcontainer then localstack is already installed and has access to your hosts docker.
+
+For local development use docker compose.
+
+For kubernetes you can install it via the helm chart:
 
 ```
 
-DEBUG=env-secrets,env-secrets:secretsmanager npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
+helm repo add localstack-repo https://helm.localstack.cloud
+helm upgrade --install localstack localstack-repo/localstack --namespace localstack --create-namespace
 
-````
+```
+
+1. **Start LocalStack:**
+
+To use localstack from within a devcontainer run:
+
+```
+
+localstack start -d
+
+```
+
+For local development you can start it with docker compose.
+
+```
+
+docker compose up -d
+
+```
+
+3. **Configure AWS CLI for LocalStack:**
+
+Set up your AWS CLI to work with LocalStack by creating a profile:
+
+```
+
+aws configure --profile localstack
+
+```
+
+Use:
+
+```
+
+AWS Access Key ID [None]: test
+AWS Secret Access Key [None]: test
+Default region name [None]: us-east-1
+Default output format [None]:
+
+```
+
+Then export the profile and the endpoint url:
+
+```
+
+export AWS_PROFILE=localstack
+export AWS_ENDPOINT_URL=http://localhost:4566
+
+```
+
+To use the env vars set:
+
+```
+
+export AWS_ACCESS_KEY_ID=test
+export AWS_SECRET_ACCESS_KEY=test
+export AWS_DEFAULT_REGION=us-east-1
+export AWS_ENDPOINT_URL=http://localhost:4566
+
+```
+
+for kubernetes the endpoint url is:
+
+```
+
+export AWS_ENDPOINT_URL=http://localstack.localstack:4566
+
+```
+
+4. **Using awslocal**
+
+```
+
+awslocal secretsmanager create-secret \
+ --name local/sample \
+ --secret-string '{"username": "marka", "password": "mypassword"}'
+
+```
+
+```
+
+awslocal secretsmanager list-secrets
+
+```
+
+```
+
+awslocal secretsmanager get-secret-value \
+ --secret-id local/sample
+
+```
+
+### Devpod Setup
+
+Create a devpod using Kubernetes provider:
+
+```bash
+devpod up --id env-secretes-dev --provider kubernetes --ide cursor git@github.com:markcallen/env-secrets.git
+```
+
+## Testing
+
+Run the test suite:
+
+```bash
+# Run all tests
+npm test
+
+# Run unit tests only
+npm run test:unit
+
+# Run unit tests with coverage
+npm run test:unit:coverage
+
+# Run end-to-end tests
+npm run test:e2e
+```
 
 ## Publishing
 
@@ -221,7 +401,7 @@ DEBUG=env-secrets,env-secrets:secretsmanager npx ts-node src/index.ts aws -s loc
 
 ```bash
 npm login
-````
+```
 
 2. **Dry run release:**
 

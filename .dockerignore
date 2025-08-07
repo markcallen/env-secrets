@@ -1,0 +1,9 @@
+node_modules
+dist
+.git
+.env
+.vscode
+*.log
+tsconfig.tsbuildinfo
+yarn-error.log
+coverage/
