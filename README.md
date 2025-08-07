@@ -84,6 +84,8 @@ env-secrets aws -s <secret-name> -r <region> -p <profile> -- <program-to-run>
 
 1. **Create a secret using AWS CLI:**
 
+Using a profile:
+
 ```bash
 aws secretsmanager create-secret \
     --region us-east-1 \
@@ -93,7 +95,19 @@ aws secretsmanager create-secret \
     --secret-string "{\"user\":\"marka\",\"password\":\"mypassword\"}"
 ```
 
+Use the env vars
+
+```bash
+aws secretsmanager create-secret \
+    --region us-east-1 \
+    --name local/sample \
+    --description "local/sample secret" \
+    --secret-string "{\"user\":\"marka\",\"password\":\"mypassword\"}"
+```
+
 2. **List the secret using AWS CLI:**
+
+Using a profile:
 
 ```bash
 aws secretsmanager get-secret-value \
@@ -103,10 +117,27 @@ aws secretsmanager get-secret-value \
     --query SecretString
 ```
 
+Using env vars:
+
+```bash
+aws secretsmanager get-secret-value \
+    --region us-east-1 \
+    --secret-id local/sample \
+    --query SecretString
+```
+
 3. **Run a command with injected secrets:**
+
+Using a profile:
 
 ```bash
 env-secrets aws -s local/sample -r us-east-1 -p marka -- echo \${user}/\${password}
+```
+
+Using env vars:
+
+```bash
+env-secrets aws -s local/sample -r us-east-1 -- echo \${user}/\${password}
 ```
 
 4. **Run a Node.js application with secrets:**
