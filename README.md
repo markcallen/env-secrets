@@ -65,12 +65,26 @@ npx env-secrets ...
 
 ## Usage
 
+For detailed AWS setup instructions, see [AWS Configuration Guide](docs/AWS.md).
+
 ### AWS Secrets Manager
 
 Retrieve secrets from AWS Secrets Manager and inject them as environment variables:
 
 ```bash
 env-secrets aws -s <secret-name> -r <region> -p <profile> -- <program-to-run>
+```
+
+#### Quick Example
+
+```bash
+# Create a secret
+aws secretsmanager create-secret \
+    --name my-app-secrets \
+    --secret-string '{"DATABASE_URL":"postgres://user:pass@localhost:5432/db","API_KEY":"abc123"}'
+
+# Use the secret in your application
+env-secrets aws -s my-app-secrets -r us-east-1 -- node app.js
 ```
 
 #### Parameters
@@ -89,13 +103,13 @@ Using a profile:
 ```bash
 aws secretsmanager create-secret \
     --region us-east-1 \
-    --profile marka \
+    --profile testuser \
     --name local/sample \
     --description "local/sample secret" \
-    --secret-string "{\"user\":\"marka\",\"password\":\"mypassword\"}"
+    --secret-string "{\"user\":\"testuser\",\"password\":\"mypassword\"}"
 ```
 
-Use the env vars
+Using env vars
 
 ```bash
 aws secretsmanager create-secret \
@@ -226,7 +240,7 @@ yarn
 
 ### Running in Development
 
-```bash
+```
 npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
 ```
 
@@ -238,8 +252,10 @@ The application uses `debug-js` for logging. Enable debug logs by setting the `D
 # Debug main application
 DEBUG=env-secrets npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
 
-# Debug vault-specific operations
+```
+
 DEBUG=env-secrets,env-secrets:secretsmanager npx ts-node src/index.ts aws -s local/sample -r us-east-1 -p marka -- env
+
 ```
 
 ### LocalStack Development
@@ -255,8 +271,10 @@ For local development use docker compose.
 For kubernetes you can install it via the helm chart:
 
 ```
+
 helm repo add localstack-repo https://helm.localstack.cloud
 helm upgrade --install localstack localstack-repo/localstack --namespace localstack --create-namespace
+
 ```
 
 1. **Start LocalStack:**
@@ -264,13 +282,17 @@ helm upgrade --install localstack localstack-repo/localstack --namespace localst
 To use localstack from within a devcontainer run:
 
 ```
+
 localstack start -d
+
 ```
 
 For local development you can start it with docker compose.
 
 ```
+
 docker compose up -d
+
 ```
 
 3. **Configure AWS CLI for LocalStack:**
@@ -278,56 +300,72 @@ docker compose up -d
 Set up your AWS CLI to work with LocalStack by creating a profile:
 
 ```
+
 aws configure --profile localstack
+
 ```
 
 Use:
 
 ```
+
 AWS Access Key ID [None]: test
 AWS Secret Access Key [None]: test
 Default region name [None]: us-east-1
 Default output format [None]:
+
 ```
 
 Then export the profile and the endpoint url:
 
 ```
+
 export AWS_PROFILE=localstack
 export AWS_ENDPOINT_URL=http://localhost:4566
+
 ```
 
 To use the env vars set:
 
 ```
+
 export AWS_ACCESS_KEY_ID=test
 export AWS_SECRET_ACCESS_KEY=test
 export AWS_DEFAULT_REGION=us-east-1
 export AWS_ENDPOINT_URL=http://localhost:4566
+
 ```
 
 for kubernetes the endpoint url is:
 
 ```
+
 export AWS_ENDPOINT_URL=http://localstack.localstack:4566
+
 ```
 
 4. **Using awslocal**
 
 ```
+
 awslocal secretsmanager create-secret \
  --name local/sample \
  --secret-string '{"username": "marka", "password": "mypassword"}'
+
 ```
 
 ```
+
 awslocal secretsmanager list-secrets
+
 ```
 
 ```
+
 awslocal secretsmanager get-secret-value \
  --secret-id local/sample
-```
+
+````
 
 ### Devpod Setup
 
@@ -335,7 +373,7 @@ Create a devpod using Kubernetes provider:
 
 ```bash
 devpod up --id env-secretes-dev --provider kubernetes --ide cursor git@github.com:markcallen/env-secrets.git
-```
+````
 
 ## Testing
 
