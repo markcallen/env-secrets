@@ -246,24 +246,57 @@ docker compose up -d
 
 Set up your AWS CLI to work with LocalStack by creating a profile:
 
+```
+aws configure --profile localstack
+```
+
+Use:
+
+```
+AWS Access Key ID [None]: test
+AWS Secret Access Key [None]: test
+Default region name [None]: us-east-1
+Default output format [None]:
+```
+
+Then export the profile and the endpoint url:
+
+```
+export AWS_PROFILE=localstack
+export AWS_ENDPOINT_URL=http://localhost:4566
+```
+
+To use the env vars set:
+
+```
 export AWS_ACCESS_KEY_ID=test
 export AWS_SECRET_ACCESS_KEY=test
 export AWS_DEFAULT_REGION=us-east-1
+export AWS_ENDPOINT_URL=http://localhost:4566
+```
 
+for kubernetes the endpoint url is:
+
+```
+export AWS_ENDPOINT_URL=http://localstack.localstack:4566
+```
+
+4. **Using awslocal**
+
+```
 awslocal secretsmanager create-secret \
- --name my-secret-name \
- --secret-string '{"username": "admin", "password": "hunter2"}'
+ --name local/sample \
+ --secret-string '{"username": "marka", "password": "mypassword"}'
+```
 
+```
 awslocal secretsmanager list-secrets
+```
 
+```
 awslocal secretsmanager get-secret-value \
- --secret-id my-secret-name
-
-alias awslocal="AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test aws --endpoint-url=http://localhost:4566"
-
-for k8s
-
-AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test aws --endpoint-url=http://localstack.localstack:4566 secretsmanager list-secrets --region us-east-1
+ --secret-id local/sample
+```
 
 ### Devpod Setup
 
