@@ -7,6 +7,7 @@ A Node.js CLI tool that retrieves secrets from vaults and injects them as enviro
 [![test](https://img.shields.io/github/actions/workflow/status/markcallen/env-secrets/unittests.yaml)](https://github.com/markcallen/env-secrets/tree/main)
 [![Downloads/week](https://img.shields.io/npm/dw/env-secrets.svg)](https://npmjs.org/package/env-secrets)
 [![License](https://img.shields.io/npm/l/env-secrets.svg)](https://github.com/markcallen/env-secrets/blob/main/LICENSE)
+[![Website](https://img.shields.io/badge/docs-website-blue)](https://markcallen.github.io/env-secrets/)
 
 ## Features
 
@@ -236,7 +237,7 @@ npm run build
 npm run serve
 ```
 
-The site is configured for GitHub Pages at `https://markcallen.github.io/env-secrets/`.
+The site is configured for GitHub Pages at https://markcallen.github.io/env-secrets/
 
 ## Development
 
