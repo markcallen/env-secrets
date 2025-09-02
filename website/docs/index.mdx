@@ -1,0 +1,35 @@
+---
+title: env-secrets
+slug: /
+---
+
+# env-secrets
+
+`env-secrets` is a Node.js CLI that fetches secrets from a vault (starting with **AWS Secrets Manager**) and injects them into the **environment variables** of a child process you run.
+
+**Highlights**
+
+- Pull JSON secrets and expose each key as `ENV`.
+- Run *any* command with injected secrets: `env-secrets aws -s <name> -- <your command>`.
+- Works globally (`npm i -g env-secrets`) or with `npx` per project.
+- Debug-friendly (`DEBUG=env-secrets,...`).
+
+## Quick Start
+
+```bash
+# Install globally
+npm install -g env-secrets
+
+# Or use with npx
+npx env-secrets aws -s my-secret -- node app.js
+```
+
+## Documentation
+
+- **[Overview](/overview)** - Learn about env-secrets
+- **[Installation](/installation)** - How to install and set up
+- **[CLI Reference](/cli-reference)** - Complete command reference
+- **[Providers](/providers/aws-secrets-manager)** - Supported secret providers
+- **[Tutorials](/tutorials/local-dev/quickstart)** - Step-by-step guides
+
+> Source: [markcallen/env-secrets](https://github.com/markcallen/env-secrets)

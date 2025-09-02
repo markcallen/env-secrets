@@ -1,6 +1,7 @@
 import type { SidebarsConfig } from '@docusaurus/plugin-content-docs';
 const sidebars: SidebarsConfig = {
   docs: [
+    { type: 'doc', id: 'index' },
     { type: 'doc', id: 'overview' },
     { type: 'doc', id: 'installation' },
     {
