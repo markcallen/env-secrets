@@ -1,0 +1,22 @@
+---
+title: Docker Compose
+---
+
+You can combine `env-secrets` with Docker Compose for local workflows.
+
+**Option A: Wrapper script**
+
+```bash
+env-secrets aws -s my/docker/secrets -r us-east-1 -- docker compose up
+```
+
+Your Compose file can reference environment variables with `${VAR}` as usual.
+
+**Option B: Inject into a "dotenv" file**
+
+If your stack requires a `.env` file, generate it on the fly:
+
+```bash
+# generate .env without writing secrets to VCS
+env-secrets aws -s my/docker/secrets -r us-east-1 -- sh -lc 'env | grep -E "^(DATABASE_URL|API_KEY)=" > .env && docker compose up'
+```

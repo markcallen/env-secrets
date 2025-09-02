@@ -1,0 +1,39 @@
+---
+title: Node, Python & Go examples
+---
+
+## Node
+
+```bash
+env-secrets aws -s node/dev -r us-east-1 -- node server.js
+```
+
+```js
+// server.js
+const apiKey = process.env.API_KEY;
+```
+
+## Python
+
+```bash
+env-secrets aws -s py/dev -r us-east-1 -- uvicorn app:app --reload
+```
+
+```py
+# app.py
+import os
+API_KEY = os.getenv("API_KEY")
+```
+
+## Go
+
+```bash
+env-secrets aws -s go/dev -r us-east-1 -- go run main.go
+```
+
+```go
+// main.go
+package main
+import ("fmt"; "os")
+func main(){ fmt.Println(os.Getenv("API_KEY")) }
+```

@@ -1,0 +1,387 @@
+---
+title: Advanced Usage
+---
+
+# Advanced Usage
+
+This guide covers advanced usage patterns and techniques for `env-secrets`.
+
+## Environment Variable Patterns
+
+### Nested JSON Handling
+
+`env-secrets` flattens nested JSON objects into environment variables:
+
+```bash
+# Secret with nested structure
+aws secretsmanager create-secret \
+  --name my/nested/config \
+  --secret-string '{
+    "database": {
+      "host": "localhost",
+      "port": 5432,
+      "name": "myapp"
+    },
+    "redis": {
+      "host": "redis.example.com",
+      "port": 6379
+    }
+  }'
+
+# Results in these environment variables:
+# DATABASE_HOST=localhost
+# DATABASE_PORT=5432
+# DATABASE_NAME=myapp
+# REDIS_HOST=redis.example.com
+# REDIS_PORT=6379
+```
+
+### Array Handling
+
+Arrays are converted to comma-separated values:
+
+```bash
+# Secret with arrays
+aws secretsmanager create-secret \
+  --name my/array/config \
+  --secret-string '{
+    "allowed_ips": ["192.168.1.1", "10.0.0.1"],
+    "domains": ["example.com", "api.example.com"]
+  }'
+
+# Results in:
+# ALLOWED_IPS=192.168.1.1,10.0.0.1
+# DOMAINS=example.com,api.example.com
+```
+
+### Special Characters
+
+Environment variable names are converted to uppercase and special characters are replaced:
+
+```bash
+# Secret with special characters
+aws secretsmanager create-secret \
+  --name my/special/config \
+  --secret-string '{
+    "api-key": "abc123",
+    "db_url": "postgres://user:pass@localhost:5432/db",
+    "oauth2.client_id": "client123"
+  }'
+
+# Results in:
+# API_KEY=abc123
+# DB_URL=postgres://user:pass@localhost:5432/db
+# OAUTH2_CLIENT_ID=client123
+```
+
+## Scripting and Automation
+
+### Shell Scripts
+
+Use `env-secrets` in shell scripts:
+
+```bash
+#!/bin/bash
+# deploy.sh
+
+# Load secrets and run deployment
+env-secrets aws -s production/deploy -r us-east-1 -- bash -c '
+  echo "Deploying with secrets..."
+  echo "Database: $DATABASE_URL"
+  echo "API Key: $API_KEY"
+  
+  # Run deployment commands
+  docker build -t myapp .
+  docker run -e DATABASE_URL -e API_KEY myapp
+'
+```
+
+### Makefile Integration
+
+```makefile
+# Makefile
+.PHONY: dev prod test
+
+dev:
+	env-secrets aws -s dev/config -r us-east-1 -- npm run dev
+
+prod:
+	env-secrets aws -s prod/config -r us-east-1 -- npm start
+
+test:
+	env-secrets aws -s test/config -r us-east-1 -- npm test
+```
+
+### CI/CD Pipelines
+
+#### GitHub Actions
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: Install env-secrets
+        run: npm install -g env-secrets
+      
+      - name: Deploy with secrets
+        run: |
+          env-secrets aws -s production/app -r us-east-1 -- npm run deploy
+```
+
+#### GitLab CI
+
+```yaml
+# .gitlab-ci.yml
+deploy:
+  stage: deploy
+  image: node:18
+  before_script:
+    - npm install -g env-secrets
+  script:
+    - env-secrets aws -s production/app -r us-east-1 -- npm run deploy
+  environment:
+    name: production
+```
+
+## Docker Integration
+
+### Docker Run
+
+```bash
+# Run container with secrets
+env-secrets aws -s docker/app -r us-east-1 -- docker run \
+  -e DATABASE_URL \
+  -e API_KEY \
+  -e REDIS_URL \
+  myapp:latest
+```
+
+### Docker Compose
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+services:
+  app:
+    build: .
+    environment:
+      - DATABASE_URL
+      - API_KEY
+      - REDIS_URL
+    command: npm start
+```
+
+```bash
+# Run with secrets
+env-secrets aws -s docker/app -r us-east-1 -- docker-compose up
+```
+
+### Multi-Stage Dockerfile
+
+```dockerfile
+# Dockerfile
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+
+FROM node:18-alpine
+WORKDIR /app
+COPY --from=builder /app/node_modules ./node_modules
+COPY . .
+
+# Use env-secrets in entrypoint
+ENTRYPOINT ["env-secrets", "aws", "-s", "docker/app", "-r", "us-east-1", "--"]
+CMD ["node", "app.js"]
+```
+
+## Kubernetes Integration
+
+### ConfigMap Alternative
+
+Instead of ConfigMaps, use `env-secrets` in your deployment:
+
+```yaml
+# deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+spec:
+  template:
+    spec:
+      containers:
+      - name: app
+        image: myapp:latest
+        command: ["env-secrets"]
+        args: ["aws", "-s", "k8s/app", "-r", "us-east-1", "--", "node", "app.js"]
+        env:
+        - name: AWS_REGION
+          value: "us-east-1"
+```
+
+### Init Container Pattern
+
+```yaml
+# deployment-with-init.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+spec:
+  template:
+    spec:
+      initContainers:
+      - name: load-secrets
+        image: node:18-alpine
+        command: ["env-secrets"]
+        args: ["aws", "-s", "k8s/app", "-r", "us-east-1", "--", "sh", "-c", "env > /shared/env && echo 'Secrets loaded'"]
+        volumeMounts:
+        - name: shared-env
+          mountPath: /shared
+      containers:
+      - name: app
+        image: myapp:latest
+        command: ["sh"]
+        args: ["-c", "source /shared/env && node app.js"]
+        volumeMounts:
+        - name: shared-env
+          mountPath: /shared
+      volumes:
+      - name: shared-env
+        emptyDir: {}
+```
+
+## Environment-Specific Secrets
+
+### Secret Naming Convention
+
+Use consistent naming for different environments:
+
+```bash
+# Development
+env-secrets aws -s dev/myapp -r us-east-1 -- npm run dev
+
+# Staging
+env-secrets aws -s staging/myapp -r us-east-1 -- npm run dev
+
+# Production
+env-secrets aws -s prod/myapp -r us-east-1 -- npm start
+```
+
+### Environment Detection
+
+```bash
+#!/bin/bash
+# run.sh
+
+ENV=${NODE_ENV:-development}
+SECRET_NAME="${ENV}/myapp"
+
+echo "Running in $ENV environment with secret: $SECRET_NAME"
+
+env-secrets aws -s "$SECRET_NAME" -r us-east-1 -- node app.js
+```
+
+## Monitoring and Logging
+
+### Health Checks
+
+```bash
+# Check if secrets are accessible
+env-secrets aws -s health/check -r us-east-1 -- echo "Secrets loaded successfully"
+```
+
+### Secret Validation
+
+```bash
+#!/bin/bash
+# validate-secrets.sh
+
+SECRET_NAME="production/app"
+REGION="us-east-1"
+
+# Validate required environment variables
+env-secrets aws -s "$SECRET_NAME" -r "$REGION" -- bash -c '
+  required_vars=("DATABASE_URL" "API_KEY" "REDIS_URL")
+  
+  for var in "${required_vars[@]}"; do
+    if [ -z "${!var}" ]; then
+      echo "ERROR: Required environment variable $var is not set"
+      exit 1
+    fi
+    echo "✓ $var is set"
+  done
+  
+  echo "All required secrets are available"
+'
+```
+
+### Debug Logging
+
+```bash
+# Enable detailed logging for troubleshooting
+DEBUG=env-secrets,env-secrets:secretsmanager \
+  env-secrets aws -s myapp -r us-east-1 -- node app.js
+```
+
+## Performance Optimization
+
+### Secret Caching
+
+While `env-secrets` doesn't cache secrets, you can optimize by:
+
+1. **Using IAM roles** instead of access keys
+2. **Keeping secrets small** and focused
+3. **Using VPC endpoints** for AWS Secrets Manager
+4. **Running in the same region** as your secrets
+
+### Batch Operations
+
+For multiple applications, consider using a single secret with all configurations:
+
+```bash
+# Single secret for all app configs
+aws secretsmanager create-secret \
+  --name production/all-configs \
+  --secret-string '{
+    "app1": {
+      "database_url": "postgres://...",
+      "api_key": "key1"
+    },
+    "app2": {
+      "database_url": "postgres://...",
+      "api_key": "key2"
+    }
+  }'
+
+# Use with environment variable filtering
+env-secrets aws -s production/all-configs -r us-east-1 -- bash -c '
+  # Filter for app1 variables
+  export APP1_DATABASE_URL=$APP1_DATABASE_URL
+  export APP1_API_KEY=$APP1_API_KEY
+  
+  node app1.js
+'
+```

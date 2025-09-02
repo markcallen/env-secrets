@@ -1,0 +1,23 @@
+---
+title: Local dev quickstart
+---
+
+This tutorial shows how to fetch a JSON secret and run your app locally with environment variables injected.
+
+1. **Create a JSON secret**
+
+```bash
+aws secretsmanager create-secret   --name my/local/app   --region us-east-1   --secret-string '{"DATABASE_URL":"postgres://user:pass@localhost:5432/db","API_KEY":"abc123"}'
+```
+
+2. **Start your app with `env-secrets`**
+
+```bash
+env-secrets aws -s my/local/app -r us-east-1 -- npm run dev
+```
+
+3. **Confirm variables are present**
+
+```bash
+env | grep -E 'DATABASE_URL|API_KEY'
+```

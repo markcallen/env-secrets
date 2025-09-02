@@ -1,0 +1,221 @@
+---
+title: Troubleshooting
+---
+
+# Troubleshooting
+
+This guide helps you resolve common issues when using `env-secrets`.
+
+## Common Issues
+
+### "Unable to connect to AWS"
+
+**Symptoms:**
+- `ConfigError` or connection timeout errors
+- "Unable to load credentials" messages
+
+**Solutions:**
+
+1. **Check AWS credentials:**
+   ```bash
+   # Verify AWS CLI works
+   aws sts get-caller-identity
+   
+   # Check environment variables
+   echo $AWS_ACCESS_KEY_ID
+   echo $AWS_SECRET_ACCESS_KEY
+   echo $AWS_DEFAULT_REGION
+   ```
+
+2. **Verify profile configuration:**
+   ```bash
+   # List available profiles
+   aws configure list-profiles
+   
+   # Test with specific profile
+   aws sts get-caller-identity --profile your-profile
+   ```
+
+3. **Check network connectivity:**
+   ```bash
+   # Test AWS API connectivity
+   aws secretsmanager list-secrets --region us-east-1
+   ```
+
+### "Secret not found"
+
+**Symptoms:**
+- `ResourceNotFoundException` errors
+- "Secret does not exist" messages
+
+**Solutions:**
+
+1. **Verify secret exists:**
+   ```bash
+   # List all secrets
+   aws secretsmanager list-secrets --region us-east-1
+   
+   # Check specific secret
+   aws secretsmanager describe-secret --secret-id your-secret-name --region us-east-1
+   ```
+
+2. **Check secret name and region:**
+   ```bash
+   # Ensure correct region
+   env-secrets aws -s your-secret-name -r us-east-1 -- env
+   
+   # Check for typos in secret name
+   aws secretsmanager list-secrets --region us-east-1 | grep your-secret-name
+   ```
+
+3. **Verify permissions:**
+   ```bash
+   # Test secret access
+   aws secretsmanager get-secret-value --secret-id your-secret-name --region us-east-1
+   ```
+
+### "ConfigError"
+
+**Symptoms:**
+- AWS SDK configuration errors
+- Profile or credential issues
+
+**Solutions:**
+
+1. **Check AWS configuration:**
+   ```bash
+   # View current configuration
+   aws configure list
+   
+   # Check credentials file
+   cat ~/.aws/credentials
+   
+   # Check config file
+   cat ~/.aws/config
+   ```
+
+2. **Set up credentials properly:**
+   ```bash
+   # Configure with environment variables
+   export AWS_ACCESS_KEY_ID=your-access-key
+   export AWS_SECRET_ACCESS_KEY=your-secret-key
+   export AWS_DEFAULT_REGION=us-east-1
+   
+   # Or configure with profile
+   aws configure --profile my-profile
+   ```
+
+### Environment variables not injected
+
+**Symptoms:**
+- Application doesn't receive expected environment variables
+- `process.env.VARIABLE_NAME` returns `undefined`
+
+**Solutions:**
+
+1. **Verify secret format:**
+   ```bash
+   # Check secret content
+   aws secretsmanager get-secret-value --secret-id your-secret-name --region us-east-1 --query SecretString
+   
+   # Ensure it's valid JSON
+   aws secretsmanager get-secret-value --secret-id your-secret-name --region us-east-1 --query SecretString | jq .
+   ```
+
+2. **Test environment injection:**
+   ```bash
+   # Check what variables are injected
+   env-secrets aws -s your-secret-name -r us-east-1 -- env | grep -E "(DATABASE|API|SECRET)"
+   
+   # Test with a simple command
+   env-secrets aws -s your-secret-name -r us-east-1 -- echo "DB_URL: $DATABASE_URL"
+   ```
+
+3. **Check for JSON parsing issues:**
+   ```bash
+   # Enable debug mode to see parsing details
+   DEBUG=env-secrets env-secrets aws -s your-secret-name -r us-east-1 -- env
+   ```
+
+## Debug Mode
+
+Enable debug logging to troubleshoot issues:
+
+### Basic Debug
+
+```bash
+# Debug main application
+DEBUG=env-secrets env-secrets aws -s my-secret -r us-east-1 -- env
+```
+
+### Detailed Debug
+
+```bash
+# Debug vault-specific operations
+DEBUG=env-secrets,env-secrets:secretsmanager env-secrets aws -s my-secret -r us-east-1 -- env
+```
+
+### AWS SDK Debug
+
+```bash
+# Debug AWS SDK operations
+DEBUG=env-secrets,aws-sdk:* env-secrets aws -s my-secret -r us-east-1 -- env
+```
+
+## Error Messages Reference
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `ConfigError` | AWS credentials not configured | Set up AWS credentials or profile |
+| `ResourceNotFoundException` | Secret doesn't exist | Verify secret name and region |
+| `AccessDeniedException` | Insufficient permissions | Check IAM policies |
+| `ValidationException` | Invalid secret name | Use valid secret name format |
+| `DecryptionFailureException` | Secret encryption issues | Contact AWS support |
+
+## Performance Issues
+
+### Slow Secret Retrieval
+
+**Causes:**
+- Network latency to AWS
+- Large secret values
+- Cold AWS SDK initialization
+
+**Solutions:**
+
+1. **Use closer AWS regions:**
+   ```bash
+   # Choose region closest to your location
+   env-secrets aws -s my-secret -r us-west-2 -- node app.js
+   ```
+
+2. **Optimize secret size:**
+   - Keep secrets as small as possible
+   - Avoid storing large binary data in secrets
+
+3. **Reuse AWS SDK instances:**
+   - The tool automatically reuses AWS SDK instances
+   - No additional configuration needed
+
+## Getting Help
+
+If you're still experiencing issues:
+
+1. **Check the logs:** Enable debug mode and review the output
+2. **Verify AWS setup:** Ensure AWS CLI works correctly
+3. **Test with AWS CLI:** Try the same operations with AWS CLI directly
+4. **Check permissions:** Verify IAM policies and roles
+5. **Review documentation:** Check this troubleshooting guide and other docs
+6. **Open an issue:** Create a GitHub issue with debug output and error details
+
+### Creating a Good Bug Report
+
+When reporting issues, include:
+
+- Error message and stack trace
+- Debug output (`DEBUG=env-secrets`)
+- AWS CLI version and configuration
+- Node.js version
+- Operating system
+- Steps to reproduce the issue
+- Expected vs actual behavior

@@ -1,0 +1,420 @@
+---
+title: Best Practices
+---
+
+# Best Practices
+
+This guide outlines best practices for using `env-secrets` effectively and securely.
+
+## Secret Management
+
+### Secret Structure
+
+**✅ Good: Flat, focused secrets**
+
+```json
+{
+  "DATABASE_URL": "postgres://user:pass@localhost:5432/db",
+  "API_KEY": "abc123",
+  "REDIS_URL": "redis://localhost:6379"
+}
+```
+
+**❌ Avoid: Overly nested structures**
+
+```json
+{
+  "app": {
+    "database": {
+      "connection": {
+        "url": "postgres://user:pass@localhost:5432/db"
+      }
+    }
+  }
+}
+```
+
+### Secret Naming
+
+**✅ Good: Environment-specific naming**
+
+```bash
+# Development
+dev/myapp/database
+dev/myapp/api-keys
+
+# Staging
+staging/myapp/database
+staging/myapp/api-keys
+
+# Production
+prod/myapp/database
+prod/myapp/api-keys
+```
+
+**❌ Avoid: Generic names**
+
+```bash
+# Too generic
+database
+api-keys
+secrets
+```
+
+### Secret Size
+
+**✅ Good: Keep secrets small and focused**
+
+```bash
+# Separate secrets by concern
+aws secretsmanager create-secret \
+  --name prod/myapp/database \
+  --secret-string '{"DATABASE_URL":"postgres://..."}'
+
+aws secretsmanager create-secret \
+  --name prod/myapp/api \
+  --secret-string '{"API_KEY":"abc123","API_SECRET":"xyz789"}'
+```
+
+**❌ Avoid: Large, monolithic secrets**
+
+```bash
+# Too large and mixed concerns
+aws secretsmanager create-secret \
+  --name prod/myapp/all-config \
+  --secret-string '{"database":"...","api":"...","redis":"...","email":"...","logging":"..."}'
+```
+
+## Security Practices
+
+### IAM Policies
+
+**✅ Good: Least privilege access**
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "secretsmanager:GetSecretValue",
+      "Resource": [
+        "arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/myapp/*",
+        "arn:aws:secretsmanager:us-east-1:123456789012:secret:staging/myapp/*"
+      ]
+    }
+  ]
+}
+```
+
+> **Note:** Replace `123456789012` with your actual AWS account ID in the resource ARNs above.
+
+**❌ Avoid: Overly permissive policies**
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "secretsmanager:*",
+      "Resource": "*"
+    }
+  ]
+}
+```
+
+### Credential Management
+
+**✅ Good: Use IAM roles**
+
+```bash
+# On EC2/ECS/Lambda
+env-secrets aws -s prod/myapp -r us-east-1 -- node app.js
+```
+
+**✅ Good: Use environment variables for CI/CD**
+
+```bash
+# In CI/CD pipeline
+export AWS_ACCESS_KEY_ID=$CI_AWS_ACCESS_KEY_ID
+export AWS_SECRET_ACCESS_KEY=$CI_AWS_SECRET_ACCESS_KEY
+export AWS_DEFAULT_REGION=us-east-1
+
+env-secrets aws -s prod/myapp -r us-east-1 -- npm run deploy
+```
+
+**❌ Avoid: Hardcoded credentials**
+
+```bash
+# Don't do this
+env-secrets aws -s prod/myapp -r us-east-1 -p my-profile -- node app.js
+# Where my-profile contains hardcoded credentials
+```
+
+## Application Integration
+
+### Environment Variable Validation
+
+**✅ Good: Validate required variables**
+
+```javascript
+// app.js
+const requiredEnvVars = [
+  'DATABASE_URL',
+  'API_KEY',
+  'REDIS_URL'
+];
+
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    console.error(`Missing required environment variable: ${envVar}`);
+    process.exit(1);
+  }
+}
+
+console.log('All required environment variables are present');
+```
+
+### Graceful Degradation
+
+**✅ Good: Handle missing secrets gracefully**
+
+```bash
+#!/bin/bash
+# start.sh
+
+# Try to load secrets, but don't fail if they're not available
+if env-secrets aws -s dev/myapp -r us-east-1 -- echo "Secrets loaded" 2>/dev/null; then
+  echo "Running with secrets from AWS"
+  env-secrets aws -s dev/myapp -r us-east-1 -- node app.js
+else
+  echo "Running with local environment variables"
+  node app.js
+fi
+```
+
+## Development Workflow
+
+### Local Development
+
+**✅ Good: Use separate development secrets**
+
+```bash
+# Create development secrets
+aws secretsmanager create-secret \
+  --name dev/myapp \
+  --secret-string '{
+    "DATABASE_URL": "postgres://dev:dev@localhost:5432/dev",
+    "API_KEY": "dev-key-123"
+  }'
+
+# Use in development
+env-secrets aws -s dev/myapp -r us-east-1 -- npm run dev
+```
+
+### Testing
+
+**✅ Good: Use test-specific secrets**
+
+```bash
+# Create test secrets
+aws secretsmanager create-secret \
+  --name test/myapp \
+  --secret-string '{
+    "DATABASE_URL": "postgres://test:test@localhost:5432/test",
+    "API_KEY": "test-key-456"
+  }'
+
+# Run tests with test secrets
+env-secrets aws -s test/myapp -r us-east-1 -- npm test
+```
+
+## Deployment Patterns
+
+### Blue-Green Deployment
+
+**✅ Good: Use environment-specific secrets**
+
+```bash
+# Blue environment
+env-secrets aws -s prod-blue/myapp -r us-east-1 -- node app.js
+
+# Green environment
+env-secrets aws -s prod-green/myapp -r us-east-1 -- node app.js
+```
+
+### Canary Deployment
+
+**✅ Good: Gradual secret rollout**
+
+```bash
+# Deploy to 10% of traffic with new secrets
+env-secrets aws -s prod-canary/myapp -r us-east-1 -- node app.js
+
+# Monitor and gradually increase
+env-secrets aws -s prod-stable/myapp -r us-east-1 -- node app.js
+```
+
+## Monitoring and Observability
+
+### Health Checks
+
+**✅ Good: Include secret validation in health checks**
+
+```bash
+#!/bin/bash
+# health-check.sh
+
+# Check if secrets are accessible
+if env-secrets aws -s health/check -r us-east-1 -- echo "OK" 2>/dev/null; then
+  echo "Secrets accessible"
+  exit 0
+else
+  echo "Secrets not accessible"
+  exit 1
+fi
+```
+
+### Logging
+
+**✅ Good: Log secret access (not values)**
+
+```bash
+# Log secret access for audit purposes
+env-secrets aws -s prod/myapp -r us-east-1 -- bash -c '
+  echo "Loading secrets from prod/myapp"
+  node app.js
+'
+```
+
+**❌ Avoid: Logging secret values**
+
+```bash
+# Never do this
+env-secrets aws -s prod/myapp -r us-east-1 -- bash -c '
+  echo "Database URL: $DATABASE_URL"  # DON'T DO THIS
+  node app.js
+'
+```
+
+## Performance Optimization
+
+### Region Selection
+
+**✅ Good: Use secrets in the same region as your application**
+
+```bash
+# If your app runs in us-west-2, store secrets there too
+env-secrets aws -s prod/myapp -r us-west-2 -- node app.js
+```
+
+### Secret Organization
+
+**✅ Good: Organize secrets by application and environment**
+
+```bash
+# Clear hierarchy
+prod/frontend/api-keys
+prod/frontend/database
+prod/backend/api-keys
+prod/backend/database
+staging/frontend/api-keys
+staging/frontend/database
+```
+
+## Error Handling
+
+### Robust Scripts
+
+**✅ Good: Handle errors gracefully**
+
+```bash
+#!/bin/bash
+# deploy.sh
+
+set -e  # Exit on any error
+
+echo "Starting deployment..."
+
+# Load secrets and deploy
+if env-secrets aws -s prod/myapp -r us-east-1 -- npm run deploy; then
+  echo "Deployment successful"
+else
+  echo "Deployment failed"
+  exit 1
+fi
+```
+
+### Fallback Strategies
+
+**✅ Good: Provide fallback options**
+
+```bash
+#!/bin/bash
+# start.sh
+
+# Try primary secrets first
+if env-secrets aws -s prod/myapp -r us-east-1 -- node app.js; then
+  echo "Started with primary secrets"
+else
+  echo "Primary secrets failed, trying backup..."
+  # Try backup secrets
+  env-secrets aws -s prod/myapp-backup -r us-east-1 -- node app.js
+fi
+```
+
+## Compliance and Audit
+
+### Access Logging
+
+**✅ Good: Enable CloudTrail logging**
+
+```bash
+# CloudTrail automatically logs all Secrets Manager access
+# No additional configuration needed with env-secrets
+```
+
+### Secret Rotation
+
+**✅ Good: Implement secret rotation**
+
+```bash
+# Rotate secrets regularly
+aws secretsmanager rotate-secret --secret-id prod/myapp/api-keys
+
+# Update applications to use new secret versions
+env-secrets aws -s prod/myapp/api-keys -r us-east-1 -- node app.js
+```
+
+## Common Anti-Patterns
+
+### ❌ Don't: Store secrets in version control
+
+```bash
+# Never commit secrets to git
+echo "DATABASE_URL=postgres://..." >> .env  # DON'T DO THIS
+```
+
+### ❌ Don't: Use the same secrets across environments
+
+```bash
+# Don't use production secrets in development
+env-secrets aws -s prod/myapp -r us-east-1 -- npm run dev  # DON'T DO THIS
+```
+
+### ❌ Don't: Share secrets between applications
+
+```bash
+# Don't use the same secret for multiple apps
+env-secrets aws -s shared/secrets -r us-east-1 -- node app1.js  # DON'T DO THIS
+env-secrets aws -s shared/secrets -r us-east-1 -- node app2.js  # DON'T DO THIS
+```
+
+### ❌ Don't: Use long-lived access keys
+
+```bash
+# Prefer IAM roles over long-lived access keys
+export AWS_ACCESS_KEY_ID=AKIA...  # DON'T DO THIS
+export AWS_SECRET_ACCESS_KEY=...   # DON'T DO THIS
+```

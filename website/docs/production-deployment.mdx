@@ -1,0 +1,578 @@
+---
+title: Production Deployment
+---
+
+# Production Deployment
+
+This guide covers best practices for deploying applications with `env-secrets` in production environments.
+
+## Pre-Deployment Checklist
+
+Before deploying to production, ensure you have:
+
+- [ ] **IAM Roles Configured**: Use IAM roles instead of access keys
+- [ ] **Secrets Created**: All required secrets exist in AWS Secrets Manager
+- [ ] **Permissions Verified**: Applications can access their required secrets
+- [ ] **Monitoring Setup**: CloudTrail and CloudWatch logging enabled
+- [ ] **Backup Strategy**: Secrets are backed up and recoverable
+- [ ] **Rotation Plan**: Secret rotation procedures documented
+
+## AWS Infrastructure Setup
+
+### IAM Roles and Policies
+
+Create dedicated IAM roles for your applications:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "secretsmanager:GetSecretValue",
+      "Resource": [
+        "arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/myapp/*",
+        "arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/myapp-api/*"
+      ]
+    }
+  ]
+}
+```
+
+### VPC Endpoints (Optional)
+
+For enhanced security, use VPC endpoints for AWS Secrets Manager:
+
+```bash
+# Create VPC endpoint
+aws ec2 create-vpc-endpoint \
+  --vpc-id vpc-12345678 \
+  --service-name com.amazonaws.us-east-1.secretsmanager \
+  --subnet-ids subnet-12345678 subnet-87654321 \
+  --security-group-ids sg-12345678
+```
+
+## Container Deployment
+
+### Docker
+
+#### Single Container
+
+```dockerfile
+# Dockerfile
+FROM node:18-alpine
+
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+
+COPY . .
+
+# Use env-secrets as entrypoint
+ENTRYPOINT ["env-secrets", "aws", "-s", "prod/myapp", "-r", "us-east-1", "--"]
+CMD ["node", "app.js"]
+```
+
+#### Multi-Container with Docker Compose
+
+```yaml
+# docker-compose.prod.yml
+version: '3.8'
+services:
+  app:
+    build: .
+    environment:
+      - AWS_REGION=us-east-1
+    command: ["env-secrets", "aws", "-s", "prod/myapp", "-r", "us-east-1", "--", "node", "app.js"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "env-secrets", "aws", "-s", "health/check", "-r", "us-east-1", "--", "echo", "healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+```
+
+### Kubernetes
+
+#### Deployment with env-secrets
+
+```yaml
+# deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+  labels:
+    app: myapp
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      serviceAccountName: myapp-sa
+      containers:
+      - name: app
+        image: myapp:latest
+        command: ["env-secrets"]
+        args: ["aws", "-s", "prod/myapp", "-r", "us-east-1", "--", "node", "app.js"]
+        env:
+        - name: AWS_REGION
+          value: "us-east-1"
+        ports:
+        - containerPort: 3000
+        livenessProbe:
+          exec:
+            command:
+            - env-secrets
+            - aws
+            - -s
+            - health/check
+            - -r
+            - us-east-1
+            - --
+            - echo
+            - "healthy"
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+```
+
+#### Service Account
+
+```yaml
+# service-account.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: myapp-sa
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/myapp-role
+```
+
+#### ConfigMap for Configuration
+
+```yaml
+# configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myapp-config
+data:
+  AWS_REGION: "us-east-1"
+  SECRET_NAME: "prod/myapp"
+  NODE_ENV: "production"
+```
+
+## Serverless Deployment
+
+### AWS Lambda
+
+```yaml
+# serverless.yml
+service: myapp
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: us-east-1
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - secretsmanager:GetSecretValue
+          Resource:
+            - arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/myapp/*
+
+functions:
+  api:
+    handler: handler.api
+    events:
+      - http:
+          path: /{proxy+}
+          method: ANY
+    environment:
+      SECRET_NAME: prod/myapp
+```
+
+```javascript
+// handler.js
+const { spawn } = require('child_process');
+
+exports.api = async (event, context) => {
+  return new Promise((resolve, reject) => {
+    const child = spawn('env-secrets', [
+      'aws', '-s', process.env.SECRET_NAME, '-r', 'us-east-1', '--', 'node', 'app.js'
+    ], {
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    // Handle Lambda event
+    child.stdin.write(JSON.stringify(event));
+    child.stdin.end();
+
+    let output = '';
+    child.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve(JSON.parse(output));
+      } else {
+        reject(new Error(`Process exited with code ${code}`));
+      }
+    });
+  });
+};
+```
+
+### AWS ECS
+
+```json
+{
+  "family": "myapp",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "256",
+  "memory": "512",
+  "executionRoleArn": "arn:aws:iam::123456789012:role/ecsTaskExecutionRole",
+  "taskRoleArn": "arn:aws:iam::123456789012:role/myapp-task-role",
+  "containerDefinitions": [
+    {
+      "name": "app",
+      "image": "myapp:latest",
+      "command": [
+        "env-secrets",
+        "aws",
+        "-s",
+        "prod/myapp",
+        "-r",
+        "us-east-1",
+        "--",
+        "node",
+        "app.js"
+      ],
+      "environment": [
+        {
+          "name": "AWS_REGION",
+          "value": "us-east-1"
+        }
+      ],
+      "portMappings": [
+        {
+          "containerPort": 3000,
+          "protocol": "tcp"
+        }
+      ],
+      "healthCheck": {
+        "command": [
+          "env-secrets",
+          "aws",
+          "-s",
+          "health/check",
+          "-r",
+          "us-east-1",
+          "--",
+          "echo",
+          "healthy"
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}
+```
+
+## CI/CD Integration
+
+### GitHub Actions
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: Install env-secrets
+        run: npm install -g env-secrets
+      
+      - name: Build Docker image
+        run: docker build -t myapp:${{ github.sha }} .
+      
+      - name: Deploy to ECS
+        run: |
+          aws ecs update-service \
+            --cluster production \
+            --service myapp \
+            --force-new-deployment
+      
+      - name: Verify deployment
+        run: |
+          env-secrets aws -s prod/myapp -r us-east-1 -- curl -f http://localhost:3000/health
+```
+
+### GitLab CI
+
+```yaml
+# .gitlab-ci.yml
+stages:
+  - test
+  - deploy
+
+test:
+  stage: test
+  image: node:18
+  script:
+    - npm install -g env-secrets
+    - env-secrets aws -s test/myapp -r us-east-1 -- npm test
+
+deploy:
+  stage: deploy
+  image: node:18
+  before_script:
+    - npm install -g env-secrets
+  script:
+    - env-secrets aws -s prod/myapp -r us-east-1 -- npm run deploy
+  environment:
+    name: production
+  only:
+    - main
+```
+
+## Monitoring and Alerting
+
+### CloudWatch Alarms
+
+```bash
+# Create alarm for secret access failures
+aws cloudwatch put-metric-alarm \
+  --alarm-name "SecretAccessFailures" \
+  --alarm-description "Alarm when secret access fails" \
+  --metric-name "Errors" \
+  --namespace "AWS/SecretsManager" \
+  --statistic "Sum" \
+  --period 300 \
+  --threshold 1 \
+  --comparison-operator "GreaterThanThreshold" \
+  --evaluation-periods 1
+```
+
+### Health Checks
+
+```bash
+#!/bin/bash
+# health-check.sh
+
+# Check if secrets are accessible
+if env-secrets aws -s health/check -r us-east-1 -- echo "OK" 2>/dev/null; then
+  echo "Secrets accessible"
+  exit 0
+else
+  echo "Secrets not accessible"
+  exit 1
+fi
+```
+
+### Application Health Endpoint
+
+```javascript
+// health.js
+app.get('/health', (req, res) => {
+  const requiredVars = ['DATABASE_URL', 'API_KEY'];
+  const missing = requiredVars.filter(var => !process.env[var]);
+  
+  if (missing.length > 0) {
+    res.status(503).json({
+      status: 'unhealthy',
+      missing: missing
+    });
+  } else {
+    res.json({
+      status: 'healthy',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+```
+
+## Disaster Recovery
+
+### Secret Backup Strategy
+
+```bash
+#!/bin/bash
+# backup-secrets.sh
+
+SECRETS=("prod/myapp" "prod/myapp-api" "prod/myapp-db")
+
+for secret in "${SECRETS[@]}"; do
+  echo "Backing up $secret..."
+  aws secretsmanager get-secret-value \
+    --secret-id "$secret" \
+    --query SecretString \
+    --output text > "backup/$secret.json"
+done
+```
+
+### Recovery Procedures
+
+```bash
+#!/bin/bash
+# restore-secrets.sh
+
+SECRET_NAME="prod/myapp"
+BACKUP_FILE="backup/$SECRET_NAME.json"
+
+if [ -f "$BACKUP_FILE" ]; then
+  echo "Restoring $SECRET_NAME..."
+  aws secretsmanager create-secret \
+    --name "$SECRET_NAME" \
+    --secret-string "$(cat $BACKUP_FILE)"
+else
+  echo "Backup file not found: $BACKUP_FILE"
+  exit 1
+fi
+```
+
+## Security Hardening
+
+### Network Security
+
+```bash
+# Restrict access to specific IP ranges
+aws secretsmanager update-secret \
+  --secret-id prod/myapp \
+  --policy '{
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Effect": "Deny",
+        "Principal": "*",
+        "Action": "secretsmanager:*",
+        "Resource": "*",
+        "Condition": {
+          "NotIpAddress": {
+            "aws:SourceIp": ["192.168.1.0/24", "10.0.0.0/8"]
+          }
+        }
+      }
+    ]
+  }'
+```
+
+### Encryption
+
+```bash
+# Use customer-managed KMS keys
+aws secretsmanager create-secret \
+  --name prod/myapp \
+  --secret-string '{"DATABASE_URL":"postgres://..."}' \
+  --kms-key-id arn:aws:kms:us-east-1:123456789012:key/myapp-key
+```
+
+## Performance Optimization
+
+### Connection Pooling
+
+```javascript
+// Use connection pooling with secrets
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000,
+});
+```
+
+### Caching Strategy
+
+While `env-secrets` doesn't cache secrets, implement application-level caching:
+
+```javascript
+// Cache frequently accessed data
+const cache = new Map();
+
+function getCachedData(key) {
+  if (cache.has(key)) {
+    return cache.get(key);
+  }
+  
+  const data = fetchData(key);
+  cache.set(key, data);
+  return data;
+}
+```
+
+## Rollback Procedures
+
+### Application Rollback
+
+```bash
+#!/bin/bash
+# rollback.sh
+
+VERSION=$1
+
+echo "Rolling back to version $VERSION..."
+
+# Update deployment to previous version
+kubectl set image deployment/myapp app=myapp:$VERSION
+
+# Verify rollback
+kubectl rollout status deployment/myapp
+
+echo "Rollback completed"
+```
+
+### Secret Rollback
+
+```bash
+#!/bin/bash
+# rollback-secret.sh
+
+SECRET_NAME="prod/myapp"
+VERSION=$1
+
+echo "Rolling back secret $SECRET_NAME to version $VERSION..."
+
+# Restore previous secret version
+aws secretsmanager restore-secret \
+  --secret-id "$SECRET_NAME" \
+  --secret-version-id "$VERSION"
+
+echo "Secret rollback completed"
+```
