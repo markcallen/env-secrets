@@ -21,6 +21,12 @@ const sidebars: SidebarsConfig = {
       ]
     },
     { type: 'doc', id: 'cli-reference' },
+    { type: 'doc', id: 'examples' },
+    { type: 'doc', id: 'advanced-usage' },
+    { type: 'doc', id: 'best-practices' },
+    { type: 'doc', id: 'production-deployment' },
+    { type: 'doc', id: 'security' },
+    { type: 'doc', id: 'troubleshooting' },
     { type: 'doc', id: 'faq' }
   ]
 };

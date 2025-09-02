@@ -2,23 +2,175 @@
 title: CLI Reference
 ---
 
+# CLI Reference
+
+The `env-secrets` command-line interface provides a simple way to inject secrets as environment variables into your applications.
+
+## Basic Syntax
+
 ```bash
 env-secrets <provider> [options] -- <program-to-run>
 ```
 
+## Providers
+
 Currently supported provider: `aws`
 
-#### Common examples
+## AWS Secrets Manager Options
+
+### Required Parameters
+
+- `-s, --secret <secret-name>` - The name or ARN of the secret in AWS Secrets Manager
+
+### Optional Parameters
+
+- `-r, --region <region>` - AWS region where the secret is stored (defaults to `AWS_DEFAULT_REGION`)
+- `-p, --profile <profile>` - AWS profile to use (defaults to environment variables or IAM role)
+
+### Global Options
+
+- `--help` - Show help information
+- `--version` - Show version information
+
+## Examples
+
+### Basic Usage
 
 ```bash
-# Inspect env contents after injection
-env-secrets aws -s local/sample -r us-east-1 -- env | grep -E '(user|password)'
+# Run a Node.js application with secrets
+env-secrets aws -s my-app-secrets -r us-east-1 -- node app.js
 
-# Run a Node app with secrets
-env-secrets aws -s my/app -r us-west-2 -- node app.js
+# Run a Python application
+env-secrets aws -s my-app-secrets -r us-east-1 -- python app.py
 
-# Use Docker with selected env vars
-env-secrets aws -s docker-secrets -r us-east-1 -- docker run -e DATABASE_URL -e API_KEY my-app
+# Run a shell command
+env-secrets aws -s my-app-secrets -r us-east-1 -- echo "Hello, $USER_NAME!"
 ```
 
-Environment variables are injected **only into the spawned process** — they are not written to disk or logged.
+### Environment Variable Inspection
+
+```bash
+# Check what environment variables are injected
+env-secrets aws -s my-app-secrets -r us-east-1 -- env | grep -E "(DATABASE|API|SECRET)"
+
+# List all environment variables
+env-secrets aws -s my-app-secrets -r us-east-1 -- env
+
+# Check specific variables
+env-secrets aws -s my-app-secrets -r us-east-1 -- bash -c 'echo "DB: $DATABASE_URL, API: $API_KEY"'
+```
+
+### Docker Integration
+
+```bash
+# Run Docker container with secrets
+env-secrets aws -s docker-secrets -r us-east-1 -- docker run \
+  -e DATABASE_URL \
+  -e API_KEY \
+  -e REDIS_URL \
+  my-app:latest
+
+# Use with docker-compose
+env-secrets aws -s docker-secrets -r us-east-1 -- docker-compose up
+```
+
+### Kubernetes Integration
+
+```bash
+# Run in Kubernetes pod
+env-secrets aws -s k8s-secrets -r us-east-1 -- node app.js
+
+# Use with kubectl exec
+kubectl exec -it my-pod -- env-secrets aws -s k8s-secrets -r us-east-1 -- node app.js
+```
+
+### CI/CD Pipelines
+
+```bash
+# GitHub Actions
+env-secrets aws -s prod/app -r us-east-1 -- npm run deploy
+
+# GitLab CI
+env-secrets aws -s prod/app -r us-east-1 -- npm run deploy
+```
+
+### Debug Mode
+
+```bash
+# Enable debug logging
+DEBUG=env-secrets env-secrets aws -s my-secret -r us-east-1 -- node app.js
+
+# Detailed debug logging
+DEBUG=env-secrets,env-secrets:secretsmanager env-secrets aws -s my-secret -r us-east-1 -- node app.js
+```
+
+## Environment Variable Behavior
+
+### JSON Secret Parsing
+
+Secrets stored as JSON are automatically parsed and converted to environment variables:
+
+```bash
+# Secret content: {"DATABASE_URL":"postgres://...","API_KEY":"abc123"}
+# Results in: DATABASE_URL=postgres://..., API_KEY=abc123
+```
+
+### Nested Object Handling
+
+Nested JSON objects are flattened:
+
+```bash
+# Secret: {"database":{"url":"postgres://...","port":5432}}
+# Results in: DATABASE_URL=postgres://..., DATABASE_PORT=5432
+```
+
+### Array Handling
+
+Arrays are converted to comma-separated values:
+
+```bash
+# Secret: {"allowed_ips":["192.168.1.1","10.0.0.1"]}
+# Results in: ALLOWED_IPS=192.168.1.1,10.0.0.1
+```
+
+### Special Character Handling
+
+Special characters in keys are converted to underscores:
+
+```bash
+# Secret: {"api-key":"abc123","db_url":"postgres://..."}
+# Results in: API_KEY=abc123, DB_URL=postgres://...
+```
+
+## Error Handling
+
+### Common Error Messages
+
+| Error | Description | Solution |
+|-------|-------------|----------|
+| `ConfigError` | AWS credentials not configured | Set up AWS credentials or profile |
+| `ResourceNotFoundException` | Secret doesn't exist | Verify secret name and region |
+| `AccessDeniedException` | Insufficient permissions | Check IAM policies |
+| `ValidationException` | Invalid secret name | Use valid secret name format |
+
+### Exit Codes
+
+- `0` - Success
+- `1` - General error
+- `2` - Configuration error
+- `3` - Secret not found
+- `4` - Permission denied
+
+## Security Notes
+
+- **No Local Storage**: Secrets are never stored locally
+- **Process Isolation**: Secrets are only injected into the child process
+- **No Logging**: Secret values are never logged
+- **Clean Exit**: Environment variables are cleaned up when the process exits
+
+## Performance Considerations
+
+- **Network Latency**: First secret retrieval may take longer due to AWS API calls
+- **Region Proximity**: Use secrets in the same region as your application
+- **Secret Size**: Keep secrets small for better performance
+- **Connection Reuse**: AWS SDK connections are reused automatically

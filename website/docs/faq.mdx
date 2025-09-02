@@ -2,17 +2,290 @@
 title: FAQ
 ---
 
+# Frequently Asked Questions
+
+## General Questions
+
+### What is env-secrets?
+
+`env-secrets` is a Node.js CLI tool that retrieves secrets from AWS Secrets Manager and injects them as environment variables into your running applications. It's designed to be simple, secure, and easy to integrate into your existing workflows.
+
+### How does env-secrets work?
+
+1. **Retrieves secrets** from AWS Secrets Manager using the AWS SDK
+2. **Parses JSON secrets** and converts them to environment variables
+3. **Spawns a child process** with the injected environment variables
+4. **Cleans up** when the process exits
+
 ### Where are secrets stored?
-Nowhere locally. `env-secrets` only sets environment variables for the spawned process.
+
+Nowhere locally. `env-secrets` only sets environment variables for the spawned process. Secrets are never:
+- Stored on disk
+- Cached in memory
+- Logged to files
+- Exposed in process lists
+
+## AWS Integration
 
 ### Can I use profiles instead of env vars?
-Yes — pass `-p <profile>`.
 
-### Does it support multiple providers?
-The initial provider is AWS Secrets Manager. Contributions welcome for other vaults.
-
-### How do I debug?
+Yes — pass `-p <profile>` to use a specific AWS profile:
 
 ```bash
-DEBUG=env-secrets,env-secrets:secretsmanager env-secrets aws -s <name> -r <region> -- env
+env-secrets aws -s my-secret -r us-east-1 -p my-profile -- node app.js
 ```
+
+### Does it support IAM roles?
+
+Yes! `env-secrets` respects AWS credential precedence:
+1. Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
+2. IAM roles (EC2, ECS, Lambda)
+3. AWS profiles
+
+### What permissions do I need?
+
+Minimal IAM policy for `env-secrets`:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "secretsmanager:GetSecretValue",
+      "Resource": "arn:aws:secretsmanager:region:account:secret:your-secret-name*"
+    }
+  ]
+}
+```
+
+### Can I use it with AWS Lambda?
+
+Yes, but with some considerations:
+- Lambda has a 15-minute execution limit
+- Use IAM roles for authentication
+- Consider using AWS SDK directly for Lambda functions
+
+## Security Questions
+
+### Are secrets logged?
+
+No, secret values are never logged. Only metadata and API calls are logged when using debug mode.
+
+### How secure is the process?
+
+Very secure:
+- **No local storage** of secrets
+- **Process isolation** - secrets only in child process
+- **Clean exit** - environment variables cleaned up
+- **HTTPS only** - all AWS API calls encrypted
+
+### Can other processes see the secrets?
+
+No, environment variables are only available to the spawned child process. The parent shell and other processes cannot access them.
+
+## Usage Questions
+
+### Does it support multiple providers?
+
+Currently, `env-secrets` supports AWS Secrets Manager. Contributions are welcome for other vaults like:
+- HashiCorp Vault
+- Azure Key Vault
+- Google Secret Manager
+
+### Can I use it with Docker?
+
+Yes! Several ways:
+
+```bash
+# Direct integration
+env-secrets aws -s docker-secrets -r us-east-1 -- docker run -e DATABASE_URL my-app
+
+# In Dockerfile
+ENTRYPOINT ["env-secrets", "aws", "-s", "docker/app", "-r", "us-east-1", "--"]
+CMD ["node", "app.js"]
+```
+
+### Can I use it with Kubernetes?
+
+Yes! Use it in your deployment:
+
+```yaml
+command: ["env-secrets"]
+args: ["aws", "-s", "k8s/app", "-r", "us-east-1", "--", "node", "app.js"]
+```
+
+### How do I debug issues?
+
+Enable debug logging:
+
+```bash
+# Basic debug
+DEBUG=env-secrets env-secrets aws -s my-secret -r us-east-1 -- env
+
+# Detailed debug
+DEBUG=env-secrets,env-secrets:secretsmanager env-secrets aws -s my-secret -r us-east-1 -- env
+```
+
+## Performance Questions
+
+### Is it fast?
+
+Yes, but depends on:
+- **Network latency** to AWS
+- **Secret size** (keep secrets small)
+- **Region proximity** (use same region as your app)
+- **AWS SDK warm-up** (first call may be slower)
+
+### Does it cache secrets?
+
+No, `env-secrets` doesn't cache secrets. Each run fetches fresh secrets from AWS Secrets Manager.
+
+### Can I optimize performance?
+
+Yes:
+- Use IAM roles instead of access keys
+- Keep secrets small and focused
+- Use VPC endpoints for AWS Secrets Manager
+- Run in the same region as your secrets
+
+## Troubleshooting
+
+### "Unable to connect to AWS"
+
+Check your AWS configuration:
+
+```bash
+# Verify AWS CLI works
+aws sts get-caller-identity
+
+# Check environment variables
+echo $AWS_ACCESS_KEY_ID
+echo $AWS_SECRET_ACCESS_KEY
+echo $AWS_DEFAULT_REGION
+```
+
+### "Secret not found"
+
+Verify the secret exists:
+
+```bash
+# List secrets
+aws secretsmanager list-secrets --region us-east-1
+
+# Check specific secret
+aws secretsmanager describe-secret --secret-id my-secret --region us-east-1
+```
+
+### "Access denied"
+
+Check your IAM permissions:
+
+```bash
+# Test secret access
+aws secretsmanager get-secret-value --secret-id my-secret --region us-east-1
+```
+
+### Environment variables not injected
+
+Check your secret format:
+
+```bash
+# Verify JSON format
+aws secretsmanager get-secret-value --secret-id my-secret --region us-east-1 --query SecretString | jq .
+```
+
+## Development Questions
+
+### Can I use it for local development?
+
+Yes! Create development secrets:
+
+```bash
+aws secretsmanager create-secret \
+  --name dev/myapp \
+  --secret-string '{"DATABASE_URL":"postgres://dev:dev@localhost:5432/dev"}'
+
+env-secrets aws -s dev/myapp -r us-east-1 -- npm run dev
+```
+
+### Can I use it with LocalStack?
+
+Yes! Perfect for local development:
+
+```bash
+# Set up LocalStack
+export AWS_ENDPOINT_URL=http://localhost:4566
+export AWS_ACCESS_KEY_ID=test
+export AWS_SECRET_ACCESS_KEY=test
+
+# Use with env-secrets
+env-secrets aws -s local/myapp -r us-east-1 -- node app.js
+```
+
+### Can I use it with different environments?
+
+Yes! Use environment-specific secrets:
+
+```bash
+# Development
+env-secrets aws -s dev/myapp -r us-east-1 -- npm run dev
+
+# Staging
+env-secrets aws -s staging/myapp -r us-east-1 -- npm run dev
+
+# Production
+env-secrets aws -s prod/myapp -r us-east-1 -- npm start
+```
+
+## Integration Questions
+
+### Can I use it with CI/CD?
+
+Yes! Great for automated deployments:
+
+```yaml
+# GitHub Actions
+- name: Deploy with secrets
+  run: env-secrets aws -s prod/app -r us-east-1 -- npm run deploy
+```
+
+### Can I use it with serverless?
+
+Yes, but consider using AWS SDK directly for Lambda functions. For other serverless platforms, `env-secrets` works well.
+
+### Can I use it with databases?
+
+Yes! Perfect for database connections:
+
+```bash
+env-secrets aws -s db/config -r us-east-1 -- node app.js
+
+# Your app can access DATABASE_URL, DB_USER, DB_PASSWORD, etc.
+```
+
+## Support Questions
+
+### Where can I get help?
+
+- **Documentation**: Check this site and the README
+- **GitHub Issues**: [Report bugs or request features](https://github.com/markcallen/env-secrets/issues)
+- **Debug Mode**: Use `DEBUG=env-secrets` for troubleshooting
+
+### How do I report a bug?
+
+Include:
+- Error message and stack trace
+- Debug output (`DEBUG=env-secrets`)
+- AWS CLI version and configuration
+- Node.js version
+- Operating system
+- Steps to reproduce
+
+### Can I contribute?
+
+Yes! Contributions are welcome:
+- Fork the repository
+- Create a feature branch
+- Add tests for new functionality
+- Submit a pull request

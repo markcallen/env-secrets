@@ -1,0 +1,120 @@
+---
+title: Security Considerations
+---
+
+# Security Considerations
+
+When using `env-secrets` in your applications, it's important to understand the security implications and follow best practices.
+
+## Credential Management
+
+`env-secrets` respects AWS credential precedence in the following order:
+
+1. **Environment Variables** (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
+2. **IAM Roles** (when running on EC2, ECS, or Lambda)
+3. **AWS Profiles** (specified with `-p` flag)
+
+### Best Practices
+
+- **Use IAM Roles**: Prefer IAM roles over hardcoded credentials when possible
+- **Least Privilege**: Grant only `secretsmanager:GetSecretValue` permission
+- **Rotate Credentials**: Regularly rotate AWS access keys
+- **Environment Isolation**: Use different AWS accounts/profiles for different environments
+
+## Secret Exposure Prevention
+
+### What env-secrets does NOT do:
+
+- ❌ Store secrets locally on disk
+- ❌ Log secrets to console or files
+- ❌ Cache secrets in memory beyond the process lifetime
+- ❌ Expose secrets in process lists
+
+### What env-secrets does:
+
+- ✅ Injects secrets only into the child process environment
+- ✅ Cleans up environment variables when the process exits
+- ✅ Uses AWS SDK's built-in security features
+- ✅ Supports debug logging without exposing secret values
+
+## Network Security
+
+- **HTTPS Only**: All AWS API calls use HTTPS/TLS encryption
+- **AWS SDK Security**: Leverages AWS SDK's built-in security features
+- **No Local Storage**: No secrets are stored locally
+
+## Audit Trail
+
+All AWS Secrets Manager API calls are logged in AWS CloudTrail, providing:
+
+- Access timestamps
+- User/role information
+- Secret names accessed
+- API actions performed
+
+## Environment Variable Security
+
+### Child Process Isolation
+
+Secrets are only injected into the specified child process:
+
+```bash
+# Only the 'node app.js' process gets the secrets
+env-secrets aws -s my-secret -r us-east-1 -- node app.js
+
+# The parent shell environment remains unchanged
+echo $DATABASE_URL  # This will be empty
+```
+
+### Process Environment
+
+The child process receives environment variables in the same way as if they were set normally:
+
+```bash
+# These are equivalent:
+DATABASE_URL=postgres://... node app.js
+
+env-secrets aws -s my-secret -r us-east-1 -- node app.js
+```
+
+## Production Security Checklist
+
+Before deploying to production:
+
+- [ ] Use IAM roles instead of access keys
+- [ ] Implement least-privilege IAM policies
+- [ ] Enable AWS CloudTrail logging
+- [ ] Use separate AWS accounts for different environments
+- [ ] Regularly rotate secrets in AWS Secrets Manager
+- [ ] Monitor for unauthorized access attempts
+- [ ] Use VPC endpoints for AWS Secrets Manager (if applicable)
+
+## IAM Policy Example
+
+Here's a minimal IAM policy for using env-secrets:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "secretsmanager:GetSecretValue",
+      "Resource": "arn:aws:secretsmanager:region:account:secret:your-secret-name*"
+    }
+  ]
+}
+```
+
+## Debug Mode Security
+
+When using debug mode, be aware that:
+
+- Secret values are NOT logged
+- Only metadata and API calls are logged
+- Debug logs may contain secret names (but not values)
+
+```bash
+# Safe to use - no secret values are exposed
+DEBUG=env-secrets env-secrets aws -s my-secret -r us-east-1 -- env
+```

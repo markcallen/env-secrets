@@ -34,7 +34,7 @@ const config: Config = {
     image: 'img/social-card.png',
     navbar: {
       title: 'env-secrets',
-      logo: { alt: 'env-secrets logo', src: 'img/logo.svg' },
+      logo: { alt: 'env-secrets logo', src: 'img/env-secrets.png' },
       items: [
         {
           type: 'docSidebar',
@@ -78,7 +78,7 @@ const config: Config = {
           ]
         }
       ],
-      copyright: `© ${new Date().getFullYear()} env-secrets.`
+      copyright: `© ${new Date().getFullYear()} Mark C Allen.`
     },
     prism: {
       theme: prismThemes.github,

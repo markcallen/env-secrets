@@ -1,0 +1,608 @@
+---
+title: Examples
+---
+
+# Examples
+
+This page provides comprehensive examples of how to use `env-secrets` in various scenarios.
+
+## Basic Examples
+
+### Simple Node.js Application
+
+```bash
+# Create a secret
+aws secretsmanager create-secret \
+  --name myapp/config \
+  --secret-string '{
+    "DATABASE_URL": "postgres://user:pass@localhost:5432/myapp",
+    "API_KEY": "abc123",
+    "REDIS_URL": "redis://localhost:6379"
+  }'
+
+# Run your application
+env-secrets aws -s myapp/config -r us-east-1 -- node app.js
+```
+
+```javascript
+// app.js
+const express = require('express');
+const app = express();
+
+const port = process.env.PORT || 3000;
+const dbUrl = process.env.DATABASE_URL;
+const apiKey = process.env.API_KEY;
+
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Hello from env-secrets!',
+    database: dbUrl ? 'Connected' : 'Not configured',
+    apiKey: apiKey ? 'Set' : 'Missing'
+  });
+});
+
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+});
+```
+
+### Python Application
+
+```bash
+# Create a secret for Python app
+aws secretsmanager create-secret \
+  --name python-app/config \
+  --secret-string '{
+    "DATABASE_URL": "postgresql://user:pass@localhost:5432/pyapp",
+    "SECRET_KEY": "your-secret-key-here",
+    "DEBUG": "False"
+  }'
+
+# Run Python application
+env-secrets aws -s python-app/config -r us-east-1 -- python app.py
+```
+
+```python
+# app.py
+import os
+from flask import Flask
+
+app = Flask(__name__)
+
+@app.route('/')
+def hello():
+    return {
+        'message': 'Hello from Python!',
+        'database': os.getenv('DATABASE_URL', 'Not set'),
+        'debug': os.getenv('DEBUG', 'Not set')
+    }
+
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
+```
+
+### Go Application
+
+```bash
+# Create a secret for Go app
+aws secretsmanager create-secret \
+  --name go-app/config \
+  --secret-string '{
+    "DB_HOST": "localhost",
+    "DB_PORT": "5432",
+    "DB_NAME": "goapp",
+    "API_KEY": "go-api-key-123"
+  }'
+
+# Run Go application
+env-secrets aws -s go-app/config -r us-east-1 -- go run main.go
+```
+
+```go
+// main.go
+package main
+
+import (
+    "fmt"
+    "net/http"
+    "os"
+)
+
+func main() {
+    http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+        fmt.Fprintf(w, "Hello from Go!\n")
+        fmt.Fprintf(w, "DB Host: %s\n", os.Getenv("DB_HOST"))
+        fmt.Fprintf(w, "API Key: %s\n", os.Getenv("API_KEY"))
+    })
+    
+    http.ListenAndServe(":8080", nil)
+}
+```
+
+## Docker Examples
+
+### Basic Docker Container
+
+```bash
+# Run container with secrets
+env-secrets aws -s docker-app/config -r us-east-1 -- docker run \
+  -e DATABASE_URL \
+  -e API_KEY \
+  -e REDIS_URL \
+  -p 3000:3000 \
+  myapp:latest
+```
+
+### Docker Compose
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+services:
+  app:
+    build: .
+    environment:
+      - DATABASE_URL
+      - API_KEY
+      - REDIS_URL
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis
+      - postgres
+  
+  redis:
+    image: redis:alpine
+    ports:
+      - "6379:6379"
+  
+  postgres:
+    image: postgres:13
+    environment:
+      POSTGRES_DB: myapp
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    ports:
+      - "5432:5432"
+```
+
+```bash
+# Run with secrets
+env-secrets aws -s docker-app/config -r us-east-1 -- docker-compose up
+```
+
+### Multi-Stage Dockerfile
+
+```dockerfile
+# Dockerfile
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+
+FROM node:18-alpine
+WORKDIR /app
+COPY --from=builder /app/node_modules ./node_modules
+COPY . .
+
+# Install env-secrets
+RUN npm install -g env-secrets
+
+# Use env-secrets as entrypoint
+ENTRYPOINT ["env-secrets", "aws", "-s", "docker/app", "-r", "us-east-1", "--"]
+CMD ["node", "app.js"]
+```
+
+## Kubernetes Examples
+
+### Basic Deployment
+
+```yaml
+# deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: myapp
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: myapp
+  template:
+    metadata:
+      labels:
+        app: myapp
+    spec:
+      serviceAccountName: myapp-sa
+      containers:
+      - name: app
+        image: myapp:latest
+        command: ["env-secrets"]
+        args: ["aws", "-s", "k8s/myapp", "-r", "us-east-1", "--", "node", "app.js"]
+        ports:
+        - containerPort: 3000
+        env:
+        - name: AWS_REGION
+          value: "us-east-1"
+```
+
+### Service Account
+
+```yaml
+# service-account.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: myapp-sa
+  annotations:
+    eks.amazonaws.com/role-arn: arn:aws:iam::123456789012:role/myapp-role
+```
+
+### ConfigMap for Configuration
+
+```yaml
+# configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myapp-config
+data:
+  AWS_REGION: "us-east-1"
+  SECRET_NAME: "k8s/myapp"
+  NODE_ENV: "production"
+```
+
+## CI/CD Examples
+
+### GitHub Actions
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: Install env-secrets
+        run: npm install -g env-secrets
+      
+      - name: Run tests with secrets
+        run: env-secrets aws -s test/myapp -r us-east-1 -- npm test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: Install env-secrets
+        run: npm install -g env-secrets
+      
+      - name: Deploy with secrets
+        run: env-secrets aws -s prod/myapp -r us-east-1 -- npm run deploy
+```
+
+### GitLab CI
+
+```yaml
+# .gitlab-ci.yml
+stages:
+  - test
+  - deploy
+
+variables:
+  AWS_REGION: us-east-1
+
+test:
+  stage: test
+  image: node:18
+  before_script:
+    - npm install -g env-secrets
+  script:
+    - env-secrets aws -s test/myapp -r $AWS_REGION -- npm test
+  environment:
+    name: test
+
+deploy:
+  stage: deploy
+  image: node:18
+  before_script:
+    - npm install -g env-secrets
+  script:
+    - env-secrets aws -s prod/myapp -r $AWS_REGION -- npm run deploy
+  environment:
+    name: production
+  only:
+    - main
+```
+
+## Database Examples
+
+### PostgreSQL with Prisma
+
+```bash
+# Create database secret
+aws secretsmanager create-secret \
+  --name myapp/database \
+  --secret-string '{
+    "DATABASE_URL": "postgresql://user:password@localhost:5432/myapp?schema=public",
+    "DB_HOST": "localhost",
+    "DB_PORT": "5432",
+    "DB_NAME": "myapp",
+    "DB_USER": "user",
+    "DB_PASSWORD": "password"
+  }'
+
+# Run with Prisma
+env-secrets aws -s myapp/database -r us-east-1 -- npx prisma migrate deploy
+env-secrets aws -s myapp/database -r us-east-1 -- npm start
+```
+
+```javascript
+// prisma/schema.prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id    Int     @id @default(autoincrement())
+  email String  @unique
+  name  String?
+}
+```
+
+### MongoDB with Mongoose
+
+```bash
+# Create MongoDB secret
+aws secretsmanager create-secret \
+  --name myapp/mongodb \
+  --secret-string '{
+    "MONGODB_URI": "mongodb://user:password@localhost:27017/myapp",
+    "DB_NAME": "myapp"
+  }'
+
+# Run application
+env-secrets aws -s myapp/mongodb -r us-east-1 -- node app.js
+```
+
+```javascript
+// app.js
+const mongoose = require('mongoose');
+
+mongoose.connect(process.env.MONGODB_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+
+const db = mongoose.connection;
+db.on('error', console.error.bind(console, 'MongoDB connection error:'));
+db.once('open', () => {
+  console.log('Connected to MongoDB');
+});
+```
+
+## API Examples
+
+### Express.js with External APIs
+
+```bash
+# Create API secret
+aws secretsmanager create-secret \
+  --name myapp/apis \
+  --secret-string '{
+    "STRIPE_SECRET_KEY": "sk_test_...",
+    "SENDGRID_API_KEY": "SG...",
+    "TWILIO_AUTH_TOKEN": "your-twilio-token",
+    "JWT_SECRET": "your-jwt-secret"
+  }'
+
+# Run API server
+env-secrets aws -s myapp/apis -r us-east-1 -- node server.js
+```
+
+```javascript
+// server.js
+const express = require('express');
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const sgMail = require('@sendgrid/mail');
+sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+const app = express();
+
+app.post('/webhook', express.raw({type: 'application/json'}), (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  const event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+  
+  // Handle webhook
+  res.json({received: true});
+});
+
+app.listen(3000, () => {
+  console.log('API server running on port 3000');
+});
+```
+
+## Environment-Specific Examples
+
+### Development Environment
+
+```bash
+# Development secrets
+aws secretsmanager create-secret \
+  --name dev/myapp \
+  --secret-string '{
+    "DATABASE_URL": "postgresql://dev:dev@localhost:5432/dev",
+    "API_KEY": "dev-key-123",
+    "DEBUG": "true",
+    "LOG_LEVEL": "debug"
+  }'
+
+# Run in development
+env-secrets aws -s dev/myapp -r us-east-1 -- npm run dev
+```
+
+### Staging Environment
+
+```bash
+# Staging secrets
+aws secretsmanager create-secret \
+  --name staging/myapp \
+  --secret-string '{
+    "DATABASE_URL": "postgresql://staging:staging@staging-db:5432/staging",
+    "API_KEY": "staging-key-456",
+    "DEBUG": "false",
+    "LOG_LEVEL": "info"
+  }'
+
+# Run in staging
+env-secrets aws -s staging/myapp -r us-east-1 -- npm start
+```
+
+### Production Environment
+
+```bash
+# Production secrets
+aws secretsmanager create-secret \
+  --name prod/myapp \
+  --secret-string '{
+    "DATABASE_URL": "postgresql://prod:prod@prod-db:5432/prod",
+    "API_KEY": "prod-key-789",
+    "DEBUG": "false",
+    "LOG_LEVEL": "warn"
+  }'
+
+# Run in production
+env-secrets aws -s prod/myapp -r us-east-1 -- npm start
+```
+
+## Monitoring Examples
+
+### Health Check Script
+
+```bash
+#!/bin/bash
+# health-check.sh
+
+SECRET_NAME="prod/myapp"
+REGION="us-east-1"
+
+# Check if secrets are accessible
+if env-secrets aws -s "$SECRET_NAME" -r "$REGION" -- echo "OK" 2>/dev/null; then
+  echo "✓ Secrets accessible"
+  
+  # Check if application is healthy
+  if env-secrets aws -s "$SECRET_NAME" -r "$REGION" -- curl -f http://localhost:3000/health; then
+    echo "✓ Application healthy"
+    exit 0
+  else
+    echo "✗ Application unhealthy"
+    exit 1
+  fi
+else
+  echo "✗ Secrets not accessible"
+  exit 1
+fi
+```
+
+### Application Health Endpoint
+
+```javascript
+// health.js
+app.get('/health', (req, res) => {
+  const requiredVars = ['DATABASE_URL', 'API_KEY'];
+  const missing = requiredVars.filter(var => !process.env[var]);
+  
+  if (missing.length > 0) {
+    res.status(503).json({
+      status: 'unhealthy',
+      missing: missing,
+      timestamp: new Date().toISOString()
+    });
+  } else {
+    res.json({
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development'
+    });
+  }
+});
+```
+
+## Debug Examples
+
+### Debug Mode
+
+```bash
+# Basic debug
+DEBUG=env-secrets env-secrets aws -s myapp/config -r us-east-1 -- node app.js
+
+# Detailed debug
+DEBUG=env-secrets,env-secrets:secretsmanager env-secrets aws -s myapp/config -r us-east-1 -- node app.js
+
+# AWS SDK debug
+DEBUG=env-secrets,aws-sdk:* env-secrets aws -s myapp/config -r us-east-1 -- node app.js
+```
+
+### Environment Variable Inspection
+
+```bash
+# Check what variables are injected
+env-secrets aws -s myapp/config -r us-east-1 -- env | grep -E "(DATABASE|API|SECRET)"
+
+# Check specific variables
+env-secrets aws -s myapp/config -r us-east-1 -- bash -c '
+  echo "Database URL: $DATABASE_URL"
+  echo "API Key: $API_KEY"
+  echo "Redis URL: $REDIS_URL"
+'
+
+# Validate required variables
+env-secrets aws -s myapp/config -r us-east-1 -- bash -c '
+  required=("DATABASE_URL" "API_KEY")
+  for var in "${required[@]}"; do
+    if [ -z "${!var}" ]; then
+      echo "ERROR: Missing $var"
+      exit 1
+    fi
+    echo "✓ $var is set"
+  done
+  echo "All required variables are present"
+'
+```
