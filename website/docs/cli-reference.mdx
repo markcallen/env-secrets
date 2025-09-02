@@ -1,0 +1,25 @@
+
+---
+title: CLI Reference
+---
+
+```bash
+env-secrets <provider> [options] -- <program-to-run>
+```
+
+Currently supported provider: `aws`
+
+#### Common examples
+
+```bash
+# Inspect env contents after injection
+env-secrets aws -s local/sample -r us-east-1 -- env | grep -E '(user|password)'
+
+# Run a Node app with secrets
+env-secrets aws -s my/app -r us-west-2 -- node app.js
+
+# Use Docker with selected env vars
+env-secrets aws -s docker-secrets -r us-east-1 -- docker run -e DATABASE_URL -e API_KEY my-app
+```
+
+Environment variables are injected **only into the spawned process** — they are not written to disk or logged.

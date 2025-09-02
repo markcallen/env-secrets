@@ -1,0 +1,19 @@
+
+---
+title: FAQ
+---
+
+### Where are secrets stored?
+Nowhere locally. `env-secrets` only sets environment variables for the spawned process.
+
+### Can I use profiles instead of env vars?
+Yes — pass `-p <profile>`.
+
+### Does it support multiple providers?
+The initial provider is AWS Secrets Manager. Contributions welcome for other vaults.
+
+### How do I debug?
+
+```bash
+DEBUG=env-secrets,env-secrets:secretsmanager env-secrets aws -s <name> -r <region> -- env
+```

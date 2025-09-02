@@ -1,0 +1,32 @@
+
+---
+title: Devcontainer + LocalStack
+---
+
+Use LocalStack to develop without touching real AWS resources.
+
+1. **Start LocalStack** (Docker or Helm)
+
+```bash
+docker compose up -d  # or 'helm upgrade --install localstack ...'
+```
+
+2. **Configure CLI**
+
+```bash
+aws configure --profile localstack
+export AWS_PROFILE=localstack
+export AWS_ENDPOINT_URL=http://localhost:4566
+```
+
+3. **Create a secret in LocalStack**
+
+```bash
+awslocal secretsmanager create-secret   --name local/sample   --secret-string '{"user":"dev","password":"dev"}'
+```
+
+4. **Run with env-secrets**
+
+```bash
+AWS_ENDPOINT_URL=http://localhost:4566 env-secrets aws -s local/sample -r us-east-1 -- env | grep -E '(user|password)'
+```
