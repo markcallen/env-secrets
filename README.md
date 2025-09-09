@@ -13,6 +13,7 @@ A Node.js CLI tool that retrieves secrets from vaults and injects them as enviro
 
 - 🔐 Retrieve secrets from AWS Secrets Manager
 - 🌍 Inject secrets as environment variables
+- 📁 Output secrets to file with secure permissions (0400)
 - 🚀 Run any command with injected secrets
 - 🔍 Debug logging support
 - 📦 Works globally or project-specific
@@ -34,8 +35,14 @@ A Node.js CLI tool that retrieves secrets from vaults and injects them as enviro
    ```
 
 3. **Run your application with secrets:**
+
    ```bash
    env-secrets aws -s my-app-secrets -r us-west-2 -- node app.js
+   ```
+
+4. **Output secrets to a file:**
+   ```bash
+   env-secrets aws -s my-app-secrets -r us-west-2 -o secrets.env
    ```
 
 ## Prerequisites
@@ -73,7 +80,7 @@ For detailed AWS setup instructions, see [AWS Configuration Guide](docs/AWS.md).
 Retrieve secrets from AWS Secrets Manager and inject them as environment variables:
 
 ```bash
-env-secrets aws -s <secret-name> -r <region> -p <profile> -- <program-to-run>
+env-secrets aws -s <secret-name> -r <region> -p <profile> [-- <program-to-run>] [-o <output-file>]
 ```
 
 #### Quick Example
@@ -93,7 +100,8 @@ env-secrets aws -s my-app-secrets -r us-east-1 -- node app.js
 - `-s, --secret <secret-name>` (required): The name of the secret in AWS Secrets Manager
 - `-r, --region <region>` (optional): AWS region where the secret is stored. If not provided, uses `AWS_DEFAULT_REGION` environment variable
 - `-p, --profile <profile>` (optional): Local AWS profile to use. If not provided, uses `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables
-- `-- <program-to-run>`: The program to run with the injected environment variables
+- `-o, --output <file>` (optional): Output secrets to a file instead of injecting into environment variables. File will be created with 0400 permissions and will not overwrite existing files
+- `-- <program-to-run>`: The program to run with the injected environment variables (only used when `-o` is not specified)
 
 #### Examples
 
@@ -173,13 +181,42 @@ env-secrets aws -s local/sample -r us-east-1 -p marka -- env | grep -E "(user|pa
 env-secrets aws -s docker-secrets -r us-east-1 -- docker run -e DATABASE_URL -e API_KEY my-app
 ```
 
+7. **Output secrets to a file:**
+
+```bash
+# Output secrets to a file (file will have 0400 permissions)
+env-secrets aws -s my-app-secrets -r us-east-1 -o secrets.env
+
+# The file will contain export statements like:
+# export DATABASE_URL=postgres://user:pass@localhost:5432/db
+# export API_KEY=abc123
+```
+
+8. **File output with profile:**
+
+```bash
+env-secrets aws -s my-secret -r us-east-1 -p my-profile -o /tmp/secrets.env
+```
+
+9. **File output prevents overwriting existing files:**
+
+```bash
+# First run - creates the file
+env-secrets aws -s my-secret -r us-east-1 -o secrets.env
+
+# Second run - will fail with error message
+env-secrets aws -s my-secret -r us-east-1 -o secrets.env
+# Error: File secrets.env already exists and will not be overwritten
+```
+
 ## Security Considerations
 
 - 🔐 **Credential Management**: The tool respects AWS credential precedence (environment variables, IAM roles, profiles)
 - 🛡️ **Secret Exposure**: Secrets are only injected into the child process environment, not logged
 - 🔒 **Network Security**: Uses AWS SDK's built-in security features for API calls
 - 📝 **Audit Trail**: AWS CloudTrail logs all Secrets Manager API calls
-- 🚫 **No Persistence**: Secrets are not stored locally or cached
+- 🚫 **No Persistence**: Secrets are not stored locally or cached (unless using `-o` flag)
+- 📁 **File Security**: When using `-o` flag, files are created with 0400 permissions (read-only for owner) and existing files are never overwritten
 
 ## Troubleshooting
 

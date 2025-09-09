@@ -136,11 +136,11 @@ describe('vaults utils', () => {
       const result = objectToEnv(obj);
 
       expect(process.env.STRING).toBe('hello');
-      expect(process.env.NUMBER).toBe(42);
-      expect(process.env.BOOLEAN).toBe(true);
-      expect(process.env.NULL).toBe(null);
-      expect(process.env.UNDEFINED).toBe(undefined);
-      expect(result).toEqual(['hello', 42, true, null, undefined]);
+      expect(process.env.NUMBER).toBe('42');
+      expect(process.env.BOOLEAN).toBe('true');
+      expect(process.env.NULL).toBe('null');
+      expect(process.env.UNDEFINED).toBe('undefined');
+      expect(result).toEqual(['hello', '42', 'true', 'null', 'undefined']);
     });
 
     test('should overwrite existing environment variables', () => {

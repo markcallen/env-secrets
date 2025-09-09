@@ -1,2 +1,4 @@
-node_modules
-dist
+node_modules/
+dist/
+website/build/
+website/node_modules/

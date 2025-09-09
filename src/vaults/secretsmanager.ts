@@ -23,6 +23,7 @@ const checkConnection = async (region?: string) => {
     debug(data);
     return true;
   } catch (err) {
+    // eslint-disable-next-line no-console
     console.error(err);
     return false;
   }
@@ -73,20 +74,30 @@ export const secretsmanager = async (options: secretsmanagerType) => {
           return JSON.parse(secretvalue);
         }
       } catch (err) {
+        // eslint-disable-next-line no-console
         console.error(err);
       }
-    } catch (err: any) {
-      if (err && err.name === 'ResourceNotFoundException') {
-        console.error(`${secret} not found`);
-      } else if (err && err.name === 'ConfigError') {
-        console.error(err.message);
+    } catch (err: unknown) {
+      if (err && typeof err === 'object' && 'name' in err) {
+        if (err.name === 'ResourceNotFoundException') {
+          // eslint-disable-next-line no-console
+          console.error(`${secret} not found`);
+        } else if (err.name === 'ConfigError' && 'message' in err) {
+          // eslint-disable-next-line no-console
+          console.error(err.message);
+        } else {
+          // eslint-disable-next-line no-console
+          console.error(err);
+        }
       } else {
+        // eslint-disable-next-line no-console
         console.error(err);
       }
     }
 
     return {};
   } else {
+    // eslint-disable-next-line no-console
     console.error('Unable to connect to AWS');
     return {};
   }

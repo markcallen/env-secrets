@@ -160,11 +160,7 @@ env-secrets aws -s prod/myapp -r us-east-1 -p my-profile -- node app.js
 
 ```javascript
 // app.js
-const requiredEnvVars = [
-  'DATABASE_URL',
-  'API_KEY',
-  'REDIS_URL'
-];
+const requiredEnvVars = ['DATABASE_URL', 'API_KEY', 'REDIS_URL'];
 
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {

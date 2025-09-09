@@ -26,6 +26,7 @@ Currently supported provider: `aws`
 
 - `-r, --region <region>` - AWS region where the secret is stored (defaults to `AWS_DEFAULT_REGION`)
 - `-p, --profile <profile>` - AWS profile to use (defaults to environment variables or IAM role)
+- `-o, --output <file>` - Output secrets to a file instead of injecting into environment variables. File will be created with 0400 permissions and will not overwrite existing files
 
 ### Global Options
 
@@ -45,6 +46,9 @@ env-secrets aws -s my-app-secrets -r us-east-1 -- python app.py
 
 # Run a shell command
 env-secrets aws -s my-app-secrets -r us-east-1 -- echo "Hello, $USER_NAME!"
+
+# Output secrets to a file
+env-secrets aws -s my-app-secrets -r us-east-1 -o secrets.env
 ```
 
 ### Environment Variable Inspection
@@ -104,6 +108,29 @@ DEBUG=env-secrets env-secrets aws -s my-secret -r us-east-1 -- node app.js
 DEBUG=env-secrets,env-secrets:secretsmanager env-secrets aws -s my-secret -r us-east-1 -- node app.js
 ```
 
+### File Output Mode
+
+```bash
+# Output secrets to a file with secure permissions
+env-secrets aws -s my-app-secrets -r us-east-1 -o secrets.env
+
+# Output with specific profile
+env-secrets aws -s my-secret -r us-east-1 -p my-profile -o /tmp/secrets.env
+
+# File content example (secrets.env):
+# export DATABASE_URL=postgres://user:pass@localhost:5432/db
+# export API_KEY=abc123
+# export REDIS_URL=redis://localhost:6379
+
+# Source the file in your application
+source secrets.env
+node app.js
+
+# Or use with Docker
+env-secrets aws -s docker-secrets -r us-east-1 -o .env
+docker run --env-file .env my-app:latest
+```
+
 ## Environment Variable Behavior
 
 ### JSON Secret Parsing
@@ -146,12 +173,12 @@ Special characters in keys are converted to underscores:
 
 ### Common Error Messages
 
-| Error | Description | Solution |
-|-------|-------------|----------|
-| `ConfigError` | AWS credentials not configured | Set up AWS credentials or profile |
-| `ResourceNotFoundException` | Secret doesn't exist | Verify secret name and region |
-| `AccessDeniedException` | Insufficient permissions | Check IAM policies |
-| `ValidationException` | Invalid secret name | Use valid secret name format |
+| Error                       | Description                    | Solution                          |
+| --------------------------- | ------------------------------ | --------------------------------- |
+| `ConfigError`               | AWS credentials not configured | Set up AWS credentials or profile |
+| `ResourceNotFoundException` | Secret doesn't exist           | Verify secret name and region     |
+| `AccessDeniedException`     | Insufficient permissions       | Check IAM policies                |
+| `ValidationException`       | Invalid secret name            | Use valid secret name format      |
 
 ### Exit Codes
 
@@ -163,10 +190,11 @@ Special characters in keys are converted to underscores:
 
 ## Security Notes
 
-- **No Local Storage**: Secrets are never stored locally
+- **No Local Storage**: Secrets are never stored locally (unless using `-o` flag)
 - **Process Isolation**: Secrets are only injected into the child process
 - **No Logging**: Secret values are never logged
 - **Clean Exit**: Environment variables are cleaned up when the process exits
+- **File Security**: When using `-o` flag, files are created with 0400 permissions (read-only for owner) and existing files are never overwritten
 
 ## Performance Considerations
 

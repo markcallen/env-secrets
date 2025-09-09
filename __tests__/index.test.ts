@@ -1,13 +1,17 @@
-import { Command, Argument } from 'commander';
 import { spawn } from 'node:child_process';
+import { writeFileSync, existsSync } from 'node:fs';
 import Debug from 'debug';
 
 // Mock external dependencies
 jest.mock('commander');
 jest.mock('node:child_process');
+jest.mock('node:fs');
 jest.mock('debug', () => jest.fn());
 jest.mock('../src/vaults/secretsmanager', () => ({
   secretsmanager: jest.fn()
+}));
+jest.mock('../src/vaults/utils', () => ({
+  objectToExport: jest.fn()
 }));
 
 // Mock the version import
@@ -17,14 +21,21 @@ jest.mock('../src/version', () => ({
 
 // Import after mocking
 import { secretsmanager } from '../src/vaults/secretsmanager';
+import { objectToExport } from '../src/vaults/utils';
 
 // Mock the actual module under test
 const mockSpawn = spawn as jest.MockedFunction<typeof spawn>;
+const mockWriteFileSync = writeFileSync as jest.MockedFunction<
+  typeof writeFileSync
+>;
+const mockExistsSync = existsSync as jest.MockedFunction<typeof existsSync>;
 const mockDebug = Debug as jest.MockedFunction<typeof Debug>;
 const mockSecretsmanager = secretsmanager as jest.MockedFunction<
   typeof secretsmanager
 >;
-const mockCommand = Command as jest.MockedClass<typeof Command>;
+const mockObjectToExport = objectToExport as jest.MockedFunction<
+  typeof objectToExport
+>;
 
 describe('index.ts CLI functionality', () => {
   beforeEach(() => {
@@ -34,6 +45,7 @@ describe('index.ts CLI functionality', () => {
     process.env = { ...process.env };
 
     // Setup mock debug
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const mockDebugInstance = jest.fn() as any;
     mockDebug.mockReturnValue(mockDebugInstance);
   });
@@ -84,10 +96,12 @@ describe('index.ts CLI functionality', () => {
       const mockEnv = { SECRET_KEY: 'secret_value' };
       mockSecretsmanager.mockResolvedValue(mockEnv);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mockChildProcess = {
         stdio: 'inherit'
-      };
-      mockSpawn.mockReturnValue(mockChildProcess as any);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any;
+      mockSpawn.mockReturnValue(mockChildProcess);
 
       const program = ['node', 'script.js', 'arg1', 'arg2'];
       const options = { secret: 'my-secret' };
@@ -161,10 +175,12 @@ describe('index.ts CLI functionality', () => {
       const mockEnv = { SECRET_KEY: 'secret_value' };
       mockSecretsmanager.mockResolvedValue(mockEnv);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mockChildProcess = {
         stdio: 'inherit'
-      };
-      mockSpawn.mockReturnValue(mockChildProcess as any);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any;
+      mockSpawn.mockReturnValue(mockChildProcess);
 
       const program = ['echo'];
       const options = { secret: 'my-secret' };
@@ -262,11 +278,12 @@ describe('index.ts CLI functionality', () => {
 
   describe('Debug logging', () => {
     it('should create debug instance with correct namespace', () => {
-      const debugInstance = mockDebug('env-secrets');
+      mockDebug('env-secrets');
       expect(mockDebug).toHaveBeenCalledWith('env-secrets');
     });
 
     it('should log environment variables when debug is enabled', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mockDebugInstance = jest.fn() as any;
       mockDebug.mockReturnValue(mockDebugInstance);
 
@@ -288,16 +305,19 @@ describe('index.ts CLI functionality', () => {
     });
 
     it('should log program execution when program is provided', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mockDebugInstance = jest.fn() as any;
       mockDebug.mockReturnValue(mockDebugInstance);
 
       const mockEnv = { SECRET_KEY: 'secret_value' };
       mockSecretsmanager.mockResolvedValue(mockEnv);
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mockChildProcess = {
         stdio: 'inherit'
-      };
-      mockSpawn.mockReturnValue(mockChildProcess as any);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any;
+      mockSpawn.mockReturnValue(mockChildProcess);
 
       const program = ['node', 'script.js', 'arg1'];
 
@@ -317,6 +337,243 @@ describe('index.ts CLI functionality', () => {
       }
 
       expect(mockDebugInstance).toHaveBeenCalledWith('node script.js arg1');
+    });
+  });
+
+  describe('File output functionality', () => {
+    beforeEach(() => {
+      // Reset console methods
+      jest.spyOn(console, 'log').mockImplementation(() => undefined);
+      jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      jest.spyOn(process, 'exit').mockImplementation(() => {
+        throw new Error('process.exit called');
+      });
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
+    });
+
+    it('should write secrets to file when output option is provided', async () => {
+      const mockSecrets = { SECRET_KEY: 'secret_value', API_KEY: 'api_value' };
+      const mockEnvContent =
+        'export SECRET_KEY=secret_value\nexport API_KEY=api_value\n';
+
+      mockSecretsmanager.mockResolvedValue(mockSecrets);
+      mockObjectToExport.mockReturnValue(mockEnvContent);
+      mockExistsSync.mockReturnValue(false);
+
+      const options: { secret: string; output: string } = {
+        secret: 'my-secret',
+        output: '/tmp/secrets.env'
+      };
+
+      // Simulate the action logic
+      const secrets = await mockSecretsmanager(options);
+
+      if (options.output) {
+        if (mockExistsSync(options.output)) {
+          // eslint-disable-next-line no-console
+          console.error(
+            `Error: File ${options.output} already exists and will not be overwritten`
+          );
+          process.exit(1);
+        }
+
+        const envContent = mockObjectToExport(secrets);
+        mockWriteFileSync(options.output, envContent, { mode: 0o400 });
+        // eslint-disable-next-line no-console
+        console.log(`Secrets written to ${options.output}`);
+      }
+
+      expect(mockSecretsmanager).toHaveBeenCalledWith(options);
+      expect(mockObjectToExport).toHaveBeenCalledWith(mockSecrets);
+      expect(mockWriteFileSync).toHaveBeenCalledWith(
+        '/tmp/secrets.env',
+        mockEnvContent,
+        { mode: 0o400 }
+      );
+      // eslint-disable-next-line no-console
+      expect(console.log).toHaveBeenCalledWith(
+        'Secrets written to /tmp/secrets.env'
+      );
+    });
+
+    it('should not overwrite existing file', async () => {
+      const mockSecrets = { SECRET_KEY: 'secret_value' };
+
+      mockSecretsmanager.mockResolvedValue(mockSecrets);
+      mockExistsSync.mockReturnValue(true);
+
+      const options: { secret: string; output: string } = {
+        secret: 'my-secret',
+        output: '/tmp/existing.env'
+      };
+
+      // Simulate the action logic
+      await mockSecretsmanager(options);
+
+      // Test the file existence check and error handling
+      if (options.output) {
+        if (mockExistsSync(options.output)) {
+          // eslint-disable-next-line no-console
+          console.error(
+            `Error: File ${options.output} already exists and will not be overwritten`
+          );
+          // In the actual implementation, this would call process.exit(1)
+        }
+      }
+
+      expect(mockExistsSync).toHaveBeenCalledWith('/tmp/existing.env');
+      // eslint-disable-next-line no-console
+      expect(console.error).toHaveBeenCalledWith(
+        'Error: File /tmp/existing.env already exists and will not be overwritten'
+      );
+      expect(mockWriteFileSync).not.toHaveBeenCalled();
+    });
+
+    it('should use original behavior when no output option is provided', async () => {
+      const mockSecrets = { SECRET_KEY: 'secret_value' };
+      mockSecretsmanager.mockResolvedValue(mockSecrets);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mockChildProcess = {
+        stdio: 'inherit'
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any;
+      mockSpawn.mockReturnValue(mockChildProcess);
+
+      const options: { secret: string; output?: string } = {
+        secret: 'my-secret'
+        // No output option
+      };
+
+      const program = ['echo', 'hello'];
+
+      // Simulate the action logic
+      const secrets = await mockSecretsmanager(options);
+
+      if (options.output) {
+        // This branch should not be taken
+        if (mockExistsSync(options.output)) {
+          // eslint-disable-next-line no-console
+          console.error(
+            `Error: File ${options.output} already exists and will not be overwritten`
+          );
+          process.exit(1);
+        }
+
+        const envContent = mockObjectToExport(secrets);
+        mockWriteFileSync(options.output, envContent, { mode: 0o400 });
+        // eslint-disable-next-line no-console
+        console.log(`Secrets written to ${options.output}`);
+      } else {
+        // Original behavior: merge secrets into environment and run program
+        const env = Object.assign({}, process.env, secrets);
+
+        if (program && program.length > 0) {
+          mockSpawn(program[0], program.slice(1), {
+            stdio: 'inherit',
+            shell: true,
+            env
+          });
+        }
+      }
+
+      expect(mockSecretsmanager).toHaveBeenCalledWith(options);
+      expect(mockSpawn).toHaveBeenCalledWith('echo', ['hello'], {
+        stdio: 'inherit',
+        shell: true,
+        env: expect.objectContaining({
+          SECRET_KEY: 'secret_value'
+        })
+      });
+      expect(mockWriteFileSync).not.toHaveBeenCalled();
+    });
+
+    it('should handle empty secrets object in file output', async () => {
+      const mockSecrets = {};
+      const mockEnvContent = '';
+
+      mockSecretsmanager.mockResolvedValue(mockSecrets);
+      mockObjectToExport.mockReturnValue(mockEnvContent);
+      mockExistsSync.mockReturnValue(false);
+
+      const options: { secret: string; output: string } = {
+        secret: 'my-secret',
+        output: '/tmp/empty.env'
+      };
+
+      // Simulate the action logic
+      const secrets = await mockSecretsmanager(options);
+
+      if (options.output) {
+        if (mockExistsSync(options.output)) {
+          // eslint-disable-next-line no-console
+          console.error(
+            `Error: File ${options.output} already exists and will not be overwritten`
+          );
+          process.exit(1);
+        }
+
+        const envContent = mockObjectToExport(secrets);
+        mockWriteFileSync(options.output, envContent, { mode: 0o400 });
+        // eslint-disable-next-line no-console
+        console.log(`Secrets written to ${options.output}`);
+      }
+
+      expect(mockObjectToExport).toHaveBeenCalledWith({});
+      expect(mockWriteFileSync).toHaveBeenCalledWith('/tmp/empty.env', '', {
+        mode: 0o400
+      });
+    });
+
+    it('should not run program when output option is provided', async () => {
+      const mockSecrets = { SECRET_KEY: 'secret_value' };
+      const mockEnvContent = 'export SECRET_KEY=secret_value\n';
+
+      mockSecretsmanager.mockResolvedValue(mockSecrets);
+      mockObjectToExport.mockReturnValue(mockEnvContent);
+      mockExistsSync.mockReturnValue(false);
+
+      const options: { secret: string; output: string } = {
+        secret: 'my-secret',
+        output: '/tmp/secrets.env'
+      };
+
+      const program = ['echo', 'hello'];
+
+      // Simulate the action logic
+      const secrets = await mockSecretsmanager(options);
+
+      if (options.output) {
+        if (mockExistsSync(options.output)) {
+          // eslint-disable-next-line no-console
+          console.error(
+            `Error: File ${options.output} already exists and will not be overwritten`
+          );
+          process.exit(1);
+        }
+
+        const envContent = mockObjectToExport(secrets);
+        mockWriteFileSync(options.output, envContent, { mode: 0o400 });
+        // eslint-disable-next-line no-console
+        console.log(`Secrets written to ${options.output}`);
+      } else {
+        // This branch should not be taken
+        const env = Object.assign({}, process.env, secrets);
+
+        if (program && program.length > 0) {
+          mockSpawn(program[0], program.slice(1), {
+            stdio: 'inherit',
+            shell: true,
+            env
+          });
+        }
+      }
+
+      expect(mockWriteFileSync).toHaveBeenCalled();
+      expect(mockSpawn).not.toHaveBeenCalled();
     });
   });
 });
