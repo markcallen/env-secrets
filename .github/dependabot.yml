@@ -13,7 +13,7 @@ updates:
       separator: '-'
     groups:
       aws-sdk:
-        patterns: ["@aws-sdk/*"]
+        patterns: ['@aws-sdk/*']
     ignore:
       - dependency-name: 'fs-extra'
       - dependency-name: '*'

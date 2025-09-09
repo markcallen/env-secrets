@@ -114,7 +114,7 @@ func main() {
         fmt.Fprintf(w, "DB Host: %s\n", os.Getenv("DB_HOST"))
         fmt.Fprintf(w, "API Key: %s\n", os.Getenv("API_KEY"))
     })
-    
+
     http.ListenAndServe(":8080", nil)
 }
 ```
@@ -146,16 +146,16 @@ services:
       - API_KEY
       - REDIS_URL
     ports:
-      - "3000:3000"
+      - '3000:3000'
     depends_on:
       - redis
       - postgres
-  
+
   redis:
     image: redis:alpine
     ports:
-      - "6379:6379"
-  
+      - '6379:6379'
+
   postgres:
     image: postgres:13
     environment:
@@ -163,7 +163,7 @@ services:
       POSTGRES_USER: user
       POSTGRES_PASSWORD: password
     ports:
-      - "5432:5432"
+      - '5432:5432'
 ```
 
 ```bash
@@ -215,15 +215,25 @@ spec:
     spec:
       serviceAccountName: myapp-sa
       containers:
-      - name: app
-        image: myapp:latest
-        command: ["env-secrets"]
-        args: ["aws", "-s", "k8s/myapp", "-r", "us-east-1", "--", "node", "app.js"]
-        ports:
-        - containerPort: 3000
-        env:
-        - name: AWS_REGION
-          value: "us-east-1"
+        - name: app
+          image: myapp:latest
+          command: ['env-secrets']
+          args:
+            [
+              'aws',
+              '-s',
+              'k8s/myapp',
+              '-r',
+              'us-east-1',
+              '--',
+              'node',
+              'app.js'
+            ]
+          ports:
+            - containerPort: 3000
+          env:
+            - name: AWS_REGION
+              value: 'us-east-1'
 ```
 
 ### Service Account
@@ -247,9 +257,9 @@ kind: ConfigMap
 metadata:
   name: myapp-config
 data:
-  AWS_REGION: "us-east-1"
-  SECRET_NAME: "k8s/myapp"
-  NODE_ENV: "production"
+  AWS_REGION: 'us-east-1'
+  SECRET_NAME: 'k8s/myapp'
+  NODE_ENV: 'production'
 ```
 
 ## CI/CD Examples
@@ -269,22 +279,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-      
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-      
+
       - name: Install env-secrets
         run: npm install -g env-secrets
-      
+
       - name: Run tests with secrets
         run: env-secrets aws -s test/myapp -r us-east-1 -- npm test
 
@@ -293,22 +303,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-      
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-      
+
       - name: Install env-secrets
         run: npm install -g env-secrets
-      
+
       - name: Deploy with secrets
         run: env-secrets aws -s prod/myapp -r us-east-1 -- npm run deploy
 ```
@@ -408,7 +418,7 @@ const mongoose = require('mongoose');
 
 mongoose.connect(process.env.MONGODB_URI, {
   useNewUrlParser: true,
-  useUnifiedTopology: true,
+  useUnifiedTopology: true
 });
 
 const db = mongoose.connection;
@@ -446,12 +456,16 @@ sgMail.setApiKey(process.env.SENDGRID_API_KEY);
 
 const app = express();
 
-app.post('/webhook', express.raw({type: 'application/json'}), (req, res) => {
+app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
   const sig = req.headers['stripe-signature'];
-  const event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
-  
+  const event = stripe.webhooks.constructEvent(
+    req.body,
+    sig,
+    process.env.STRIPE_WEBHOOK_SECRET
+  );
+
   // Handle webhook
-  res.json({received: true});
+  res.json({ received: true });
 });
 
 app.listen(3000, () => {
@@ -526,7 +540,7 @@ REGION="us-east-1"
 # Check if secrets are accessible
 if env-secrets aws -s "$SECRET_NAME" -r "$REGION" -- echo "OK" 2>/dev/null; then
   echo "✓ Secrets accessible"
-  
+
   # Check if application is healthy
   if env-secrets aws -s "$SECRET_NAME" -r "$REGION" -- curl -f http://localhost:3000/health; then
     echo "✓ Application healthy"
@@ -548,7 +562,7 @@ fi
 app.get('/health', (req, res) => {
   const requiredVars = ['DATABASE_URL', 'API_KEY'];
   const missing = requiredVars.filter(var => !process.env[var]);
-  
+
   if (missing.length > 0) {
     res.status(503).json({
       status: 'unhealthy',
@@ -563,6 +577,74 @@ app.get('/health', (req, res) => {
     });
   }
 });
+```
+
+## File Output Examples
+
+### Basic File Output
+
+```bash
+# Output secrets to a file
+env-secrets aws -s myapp/config -r us-east-1 -o secrets.env
+
+# File content (secrets.env):
+# export DATABASE_URL=postgres://user:pass@localhost:5432/myapp
+# export API_KEY=abc123
+# export REDIS_URL=redis://localhost:6379
+
+# Use the file in your application
+source secrets.env
+node app.js
+```
+
+### Docker with File Output
+
+```bash
+# Generate environment file for Docker
+env-secrets aws -s docker-app/config -r us-east-1 -o .env
+
+# Use with Docker
+docker run --env-file .env -p 3000:3000 myapp:latest
+
+# Or with docker-compose
+docker-compose up
+```
+
+### CI/CD with File Output
+
+```bash
+# GitHub Actions example
+- name: Generate secrets file
+  run: env-secrets aws -s prod/myapp -r us-east-1 -o .env
+
+- name: Deploy with secrets
+  run: |
+    source .env
+    npm run deploy
+```
+
+### Kubernetes with File Output
+
+```bash
+# Generate secrets file in init container
+env-secrets aws -s k8s/myapp -r us-east-1 -o /shared/secrets.env
+
+# Use in main container
+source /shared/secrets.env
+node app.js
+```
+
+### File Security Features
+
+```bash
+# File permissions are automatically set to 0400 (read-only for owner)
+env-secrets aws -s myapp/config -r us-east-1 -o secrets.env
+ls -la secrets.env
+# -r-------- 1 user user 123 Jan 1 12:00 secrets.env
+
+# Existing files are never overwritten
+env-secrets aws -s myapp/config -r us-east-1 -o secrets.env
+# Error: File secrets.env already exists and will not be overwritten
 ```
 
 ## Debug Examples

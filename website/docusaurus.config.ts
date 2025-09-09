@@ -27,7 +27,7 @@ const config: Config = {
         },
         blog: false,
         theme: { customCss: require.resolve('./src/css/custom.css') }
-      } as any
+      }
     ]
   ],
   themeConfig: {

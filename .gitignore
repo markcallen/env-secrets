@@ -14,3 +14,6 @@ yarn-error.log
 
 # coverage
 coverage/
+
+# files created during testing
+secrets.env

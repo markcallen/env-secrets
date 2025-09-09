@@ -89,7 +89,7 @@ env-secrets aws -s production/deploy -r us-east-1 -- bash -c '
   echo "Deploying with secrets..."
   echo "Database: $DATABASE_URL"
   echo "API Key: $API_KEY"
-  
+
   # Run deployment commands
   docker build -t myapp .
   docker run -e DATABASE_URL -e API_KEY myapp
@@ -128,22 +128,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-      
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-      
+
       - name: Install env-secrets
         run: npm install -g env-secrets
-      
+
       - name: Deploy with secrets
         run: |
           env-secrets aws -s production/app -r us-east-1 -- npm run deploy
@@ -232,13 +232,14 @@ spec:
   template:
     spec:
       containers:
-      - name: app
-        image: myapp:latest
-        command: ["env-secrets"]
-        args: ["aws", "-s", "k8s/app", "-r", "us-east-1", "--", "node", "app.js"]
-        env:
-        - name: AWS_REGION
-          value: "us-east-1"
+        - name: app
+          image: myapp:latest
+          command: ['env-secrets']
+          args:
+            ['aws', '-s', 'k8s/app', '-r', 'us-east-1', '--', 'node', 'app.js']
+          env:
+            - name: AWS_REGION
+              value: 'us-east-1'
 ```
 
 ### Init Container Pattern
@@ -253,24 +254,35 @@ spec:
   template:
     spec:
       initContainers:
-      - name: load-secrets
-        image: node:18-alpine
-        command: ["env-secrets"]
-        args: ["aws", "-s", "k8s/app", "-r", "us-east-1", "--", "sh", "-c", "env > /shared/env && echo 'Secrets loaded'"]
-        volumeMounts:
-        - name: shared-env
-          mountPath: /shared
+        - name: load-secrets
+          image: node:18-alpine
+          command: ['env-secrets']
+          args:
+            [
+              'aws',
+              '-s',
+              'k8s/app',
+              '-r',
+              'us-east-1',
+              '--',
+              'sh',
+              '-c',
+              "env > /shared/env && echo 'Secrets loaded'"
+            ]
+          volumeMounts:
+            - name: shared-env
+              mountPath: /shared
       containers:
-      - name: app
-        image: myapp:latest
-        command: ["sh"]
-        args: ["-c", "source /shared/env && node app.js"]
-        volumeMounts:
-        - name: shared-env
-          mountPath: /shared
+        - name: app
+          image: myapp:latest
+          command: ['sh']
+          args: ['-c', 'source /shared/env && node app.js']
+          volumeMounts:
+            - name: shared-env
+              mountPath: /shared
       volumes:
-      - name: shared-env
-        emptyDir: {}
+        - name: shared-env
+          emptyDir: {}
 ```
 
 ## Environment-Specific Secrets
@@ -325,7 +337,7 @@ REGION="us-east-1"
 # Validate required environment variables
 env-secrets aws -s "$SECRET_NAME" -r "$REGION" -- bash -c '
   required_vars=("DATABASE_URL" "API_KEY" "REDIS_URL")
-  
+
   for var in "${required_vars[@]}"; do
     if [ -z "${!var}" ]; then
       echo "ERROR: Required environment variable $var is not set"
@@ -333,7 +345,7 @@ env-secrets aws -s "$SECRET_NAME" -r "$REGION" -- bash -c '
     fi
     echo "✓ $var is set"
   done
-  
+
   echo "All required secrets are available"
 '
 ```
@@ -381,7 +393,7 @@ env-secrets aws -s production/all-configs -r us-east-1 -- bash -c '
   # Filter for app1 variables
   export APP1_DATABASE_URL=$APP1_DATABASE_URL
   export APP1_API_KEY=$APP1_API_KEY
-  
+
   node app1.js
 '
 ```

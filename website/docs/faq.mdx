@@ -20,6 +20,7 @@ title: FAQ
 ### Where are secrets stored?
 
 Nowhere locally. `env-secrets` only sets environment variables for the spawned process. Secrets are never:
+
 - Stored on disk
 - Cached in memory
 - Logged to files
@@ -38,6 +39,7 @@ env-secrets aws -s my-secret -r us-east-1 -p my-profile -- node app.js
 ### Does it support IAM roles?
 
 Yes! `env-secrets` respects AWS credential precedence:
+
 1. Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
 2. IAM roles (EC2, ECS, Lambda)
 3. AWS profiles
@@ -47,6 +49,7 @@ Yes! `env-secrets` respects AWS credential precedence:
 Minimal IAM policy for `env-secrets`:
 
 > **Note:** In the ARN below, replace `region` with your AWS region (e.g., `us-east-1`) and `account` with your AWS account ID.
+
 ```json
 {
   "Version": "2012-10-17",
@@ -63,6 +66,7 @@ Minimal IAM policy for `env-secrets`:
 ### Can I use it with AWS Lambda?
 
 Yes, but with some considerations:
+
 - Lambda has a 15-minute execution limit
 - Use IAM roles for authentication
 - Consider using AWS SDK directly for Lambda functions
@@ -76,6 +80,7 @@ No, secret values are never logged. Only metadata and API calls are logged when 
 ### How secure is the process?
 
 Very secure:
+
 - **No local storage** of secrets
 - **Process isolation** - secrets only in child process
 - **Clean exit** - environment variables cleaned up
@@ -90,6 +95,7 @@ No, environment variables are only available to the spawned child process. The p
 ### Does it support multiple providers?
 
 Currently, `env-secrets` supports AWS Secrets Manager. Contributions are welcome for other vaults like:
+
 - HashiCorp Vault
 - Azure Key Vault
 - Google Secret Manager
@@ -112,8 +118,8 @@ CMD ["node", "app.js"]
 Yes! Use it in your deployment:
 
 ```yaml
-command: ["env-secrets"]
-args: ["aws", "-s", "k8s/app", "-r", "us-east-1", "--", "node", "app.js"]
+command: ['env-secrets']
+args: ['aws', '-s', 'k8s/app', '-r', 'us-east-1', '--', 'node', 'app.js']
 ```
 
 ### How do I debug issues?
@@ -133,6 +139,7 @@ DEBUG=env-secrets,env-secrets:secretsmanager env-secrets aws -s my-secret -r us-
 ### Is it fast?
 
 Yes, but depends on:
+
 - **Network latency** to AWS
 - **Secret size** (keep secrets small)
 - **Region proximity** (use same region as your app)
@@ -145,6 +152,7 @@ No, `env-secrets` doesn't cache secrets. Each run fetches fresh secrets from AWS
 ### Can I optimize performance?
 
 Yes:
+
 - Use IAM roles instead of access keys
 - Keep secrets small and focused
 - Use VPC endpoints for AWS Secrets Manager
@@ -276,6 +284,7 @@ env-secrets aws -s db/config -r us-east-1 -- node app.js
 ### How do I report a bug?
 
 Include:
+
 - Error message and stack trace
 - Debug output (`DEBUG=env-secrets`)
 - AWS CLI version and configuration
@@ -286,6 +295,7 @@ Include:
 ### Can I contribute?
 
 Yes! Contributions are welcome:
+
 - Fork the repository
 - Create a feature branch
 - Add tests for new functionality

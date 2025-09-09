@@ -22,7 +22,7 @@
 
 ### Formatting
 
-- **Prettier**: Default config (empty .prettierrc), 2-space indentation
+- **Prettier**: Default config (.prettierrc), 2-space indentation
 - **Line Length**: Let Prettier handle line wrapping
 - **Trailing Commas**: Use in objects and arrays
 
@@ -42,11 +42,16 @@
 
 ### Quality Checks
 
+Always run quaity checks after creating or modifing files
+
 - **Linting**: `yarn lint` - runs ESLint with TypeScript support
 - **Formatting**: `yarn prettier:fix` - formats code with Prettier
 - **Type Checking**: `yarn build` - compiles TypeScript and checks types
 
 ### Testing Strategy
+
+Always run unit tests after creating or modifying files.  
+Always run end to end tests before pushing code to a remote git repository.
 
 - **Unit Tests**: Jest framework, located in `__tests__/`
 - **E2E Tests**: Located in `__e2e__/`

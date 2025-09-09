@@ -4,8 +4,8 @@ import { exec } from 'child_process';
 type Cli = {
   code: number;
   error: Error;
-  stdout: any;
-  stderr: any;
+  stdout: string;
+  stderr: string;
 };
 
 describe('CLI tests', () => {

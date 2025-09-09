@@ -14,7 +14,9 @@ export const replaceWithAstrisk = (str: string | undefined) => {
   }
 };
 
-export const objectToExport = (obj: Record<string, any>) => {
+export const objectToExport = (
+  obj: Record<string, string | number | boolean>
+) => {
   return Object.entries(obj).reduce(
     (env, [OutputKey, OutputValue]) =>
       `${env}export ${OutputKey}=${OutputValue}${os.EOL}`,
@@ -22,8 +24,8 @@ export const objectToExport = (obj: Record<string, any>) => {
   );
 };
 
-export const objectToEnv = (obj: Record<string, any>) => {
+export const objectToEnv = (obj: Record<string, string | number | boolean>) => {
   return Object.entries(obj).map(
-    ([OutputKey, OutputValue]) => (process.env[OutputKey] = OutputValue)
+    ([OutputKey, OutputValue]) => (process.env[OutputKey] = String(OutputValue))
   );
 };

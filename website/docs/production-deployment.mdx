@@ -83,10 +83,33 @@ services:
     build: .
     environment:
       - AWS_REGION=us-east-1
-    command: ["env-secrets", "aws", "-s", "prod/myapp", "-r", "us-east-1", "--", "node", "app.js"]
+    command:
+      [
+        'env-secrets',
+        'aws',
+        '-s',
+        'prod/myapp',
+        '-r',
+        'us-east-1',
+        '--',
+        'node',
+        'app.js'
+      ]
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "env-secrets", "aws", "-s", "health/check", "-r", "us-east-1", "--", "echo", "healthy"]
+      test:
+        [
+          'CMD',
+          'env-secrets',
+          'aws',
+          '-s',
+          'health/check',
+          '-r',
+          'us-east-1',
+          '--',
+          'echo',
+          'healthy'
+        ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -116,35 +139,45 @@ spec:
     spec:
       serviceAccountName: myapp-sa
       containers:
-      - name: app
-        image: myapp:latest
-        command: ["env-secrets"]
-        args: ["aws", "-s", "prod/myapp", "-r", "us-east-1", "--", "node", "app.js"]
-        env:
-        - name: AWS_REGION
-          value: "us-east-1"
-        ports:
-        - containerPort: 3000
-        livenessProbe:
-          exec:
-            command:
-            - env-secrets
-            - aws
-            - -s
-            - health/check
-            - -r
-            - us-east-1
-            - --
-            - echo
-            - "healthy"
-          initialDelaySeconds: 30
-          periodSeconds: 10
-        readinessProbe:
-          httpGet:
-            path: /health
-            port: 3000
-          initialDelaySeconds: 5
-          periodSeconds: 5
+        - name: app
+          image: myapp:latest
+          command: ['env-secrets']
+          args:
+            [
+              'aws',
+              '-s',
+              'prod/myapp',
+              '-r',
+              'us-east-1',
+              '--',
+              'node',
+              'app.js'
+            ]
+          env:
+            - name: AWS_REGION
+              value: 'us-east-1'
+          ports:
+            - containerPort: 3000
+          livenessProbe:
+            exec:
+              command:
+                - env-secrets
+                - aws
+                - -s
+                - health/check
+                - -r
+                - us-east-1
+                - --
+                - echo
+                - 'healthy'
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 5
 ```
 
 #### Service Account
@@ -168,9 +201,9 @@ kind: ConfigMap
 metadata:
   name: myapp-config
 data:
-  AWS_REGION: "us-east-1"
-  SECRET_NAME: "prod/myapp"
-  NODE_ENV: "production"
+  AWS_REGION: 'us-east-1'
+  SECRET_NAME: 'prod/myapp'
+  NODE_ENV: 'production'
 ```
 
 ## Serverless Deployment
@@ -211,11 +244,22 @@ const { spawn } = require('child_process');
 
 exports.api = async (event, context) => {
   return new Promise((resolve, reject) => {
-    const child = spawn('env-secrets', [
-      'aws', '-s', process.env.SECRET_NAME, '-r', 'us-east-1', '--', 'node', 'app.js'
-    ], {
-      stdio: ['pipe', 'pipe', 'pipe']
-    });
+    const child = spawn(
+      'env-secrets',
+      [
+        'aws',
+        '-s',
+        process.env.SECRET_NAME,
+        '-r',
+        'us-east-1',
+        '--',
+        'node',
+        'app.js'
+      ],
+      {
+        stdio: ['pipe', 'pipe', 'pipe']
+      }
+    );
 
     // Handle Lambda event
     child.stdin.write(JSON.stringify(event));
@@ -314,32 +358,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '18'
-      
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
-      
+
       - name: Install env-secrets
         run: npm install -g env-secrets
-      
+
       - name: Build Docker image
         run: docker build -t myapp:${{ github.sha }} .
-      
+
       - name: Deploy to ECS
         run: |
           aws ecs update-service \
             --cluster production \
             --service myapp \
             --force-new-deployment
-      
+
       - name: Verify deployment
         run: |
           env-secrets aws -s prod/myapp -r us-east-1 -- curl -f http://localhost:3000/health
@@ -414,7 +458,7 @@ fi
 app.get('/health', (req, res) => {
   const requiredVars = ['DATABASE_URL', 'API_KEY'];
   const missing = requiredVars.filter(var => !process.env[var]);
-  
+
   if (missing.length > 0) {
     res.status(503).json({
       status: 'unhealthy',
@@ -514,7 +558,7 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  connectionTimeoutMillis: 2000
 });
 ```
 
@@ -530,7 +574,7 @@ function getCachedData(key) {
   if (cache.has(key)) {
     return cache.get(key);
   }
-  
+
   const data = fetchData(key);
   cache.set(key, data);
   return data;
