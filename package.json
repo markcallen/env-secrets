@@ -20,7 +20,8 @@
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "jest __tests__",
     "test:unit:coverage": "jest __tests__ --coverage",
-    "test:e2e": "npm run build && jest __e2e__"
+    "test:e2e": "npm run build && jest --config jest.e2e.config.js",
+    "test:e2e:coverage": "npm run build && jest --config jest.e2e.config.js --coverage"
   },
   "devDependencies": {
     "@types/debug": "^4.1.12",
@@ -28,6 +29,7 @@
     "@types/node": "^18.19.124",
     "@typescript-eslint/eslint-plugin": "^5.62.0",
     "@typescript-eslint/parser": "^5.62.0",
+    "aws-sdk-client-mock": "^3.0.0",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^8.10.2",
     "eslint-plugin-prettier": "^4.2.5",

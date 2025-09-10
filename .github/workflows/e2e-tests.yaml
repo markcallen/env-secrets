@@ -9,21 +9,17 @@ on:
       - main
 
 jobs:
-  unit-tests:
+  e2e:
     runs-on: ubuntu-latest
-
-    strategy:
-      matrix:
-        node-version: [18.x, 20.x, 22.x, 24.x]
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
 
-      - name: Set up Node.js ${{ matrix.node-version }}
+      - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 24.x
 
       - name: Install dependencies
         run: yarn --ignore-scripts --frozen-lockfile
@@ -32,7 +28,13 @@ jobs:
         run: yarn build
 
       - name: Run the tests
-        run: yarn test:unit
+        run: yarn test:e2e:coverage
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: ./coverage-e2e
 
       - name: Notify failures
         if: failure()
