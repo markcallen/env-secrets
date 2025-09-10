@@ -14,7 +14,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: 'pages'
+  group: deploy-docs-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
