@@ -1,4 +1,4 @@
-name: Unit Tests
+name: E2E Tests
 
 on:
   pull_request:
@@ -7,6 +7,10 @@ on:
   push:
     branches:
       - main
+
+concurrency:
+  group: e2e-tests-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   e2e:
