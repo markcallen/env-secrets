@@ -579,6 +579,278 @@ app.get('/health', (req, res) => {
 });
 ```
 
+## Creating Local secrets.env Files
+
+The `-o` option allows you to write secrets to a local file instead of injecting them directly into environment variables. This is particularly useful for development workflows, CI/CD pipelines, and scenarios where you need to share environment variables across multiple processes.
+
+### Prerequisites
+
+To use the generated `.env` files, you'll need to install [`dotenv-cli`](https://www.npmjs.com/package/dotenv-cli) or [`dotenv`](https://www.npmjs.com/package/dotenv):
+
+```bash
+# Install dotenv-cli globally
+npm install -g dotenv-cli
+
+# Or install dotenv locally
+npm install --save-dev dotenv
+```
+
+### Basic File Output
+
+```bash
+# Output secrets to a file
+env-secrets aws -s myapp/config -r us-east-1 -o secrets.env
+
+# File content (secrets.env):
+# DATABASE_URL=postgres://user:pass@localhost:5432/myapp
+# API_KEY=abc123
+# REDIS_URL=redis://localhost:6379
+
+# Use the file with dotenv-cli
+dotenv -- node app.js
+
+# Use the file with dotenv
+node -r dotenv/config app.js
+```
+
+### Creating secrets.env for Local Development
+
+This is one of the most common use cases - creating a local `secrets.env` file for development:
+
+```bash
+# Create a development secrets file
+env-secrets aws -s dev/myapp -r us-east-1 -o secrets.env
+
+# The file will contain your development secrets:
+# DATABASE_URL=postgresql://dev:dev@localhost:5432/dev
+# API_KEY=dev-key-123
+# DEBUG=true
+# LOG_LEVEL=debug
+
+# Source the file and run your application
+dotenv -- npm run dev
+```
+
+### File Security Features
+
+The `-o` option includes several security features:
+
+```bash
+# Files are created with 0400 permissions (read-only for owner)
+env-secrets aws -s myapp/config -r us-east-1 -o secrets.env
+ls -la secrets.env
+# -r-------- 1 user user 123 Jan 1 12:00 secrets.env
+
+# Existing files are never overwritten for safety
+env-secrets aws -s myapp/config -r us-east-1 -o secrets.env
+# Error: File secrets.env already exists and will not be overwritten
+
+# To update an existing file, delete it first
+rm secrets.env
+env-secrets aws -s myapp/config -r us-east-1 -o secrets.env
+```
+
+### Integration with Different Environments
+
+#### Node.js Applications
+
+```bash
+# Create .env for Node.js
+env-secrets aws -s node-app/config -r us-east-1 -o .env
+
+# Use with dotenv-cli
+dotenv -- node app.js
+
+# Alternative: Use Node.js built-in dotenv support
+node -r dotenv/config app.js
+```
+
+```javascript
+// app.js
+console.log('Database URL:', process.env.DATABASE_URL);
+console.log('API Key:', process.env.API_KEY);
+```
+
+#### Python Applications
+
+```bash
+# Create .env for Python
+env-secrets aws -s python-app/config -r us-east-1 -o .env
+
+# load_dotenv
+pip install python-dotenv
+```
+
+```python
+# app.py
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# load_env automatically loads the secrets.env file
+print(f"Database URL: {os.getenv('DATABASE_URL')}")
+print(f"API Key: {os.getenv('API_KEY')}")
+```
+
+#### Docker Development
+
+```bash
+# Create .env file for Docker
+env-secrets aws -s docker-app/config -r us-east-1 -o .env
+
+# Use with Docker
+docker run --env-file .env -p 3000:3000 myapp:latest
+
+# Or with docker-compose
+docker-compose up
+
+# Or use dotenv-cli for local development
+dotenv -- docker-compose up
+```
+
+```yaml
+# docker-compose.yml
+version: '3.8'
+services:
+  app:
+    build: .
+    env_file:
+      - .env
+    ports:
+      - '3000:3000'
+```
+
+### CI/CD Pipeline Integration
+
+#### GitHub Actions
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy with Secrets
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Install env-secrets
+        run: npm install -g env-secrets dotenv-cli
+
+      - name: Generate secrets file
+        run: env-secrets aws -s prod/myapp -r us-east-1 -o .env
+
+      - name: Deploy with secrets
+        run: |
+          dotenv -- npm run deploy
+```
+
+#### GitLab CI
+
+```yaml
+# .gitlab-ci.yml
+deploy:
+  stage: deploy
+  image: node:18
+  before_script:
+    - npm install -g env-secrets dotenv-cli
+  script:
+    - env-secrets aws -s prod/myapp -r us-east-1 -o .env
+    - dotenv -- npm run deploy
+```
+
+### Advanced File Output Examples
+
+#### Multiple Environment Files
+
+```bash
+# Create environment-specific files
+env-secrets aws -s dev/myapp -r us-east-1 -o dev.env
+env-secrets aws -s staging/myapp -r us-east-1 -o staging.env
+env-secrets aws -s prod/myapp -r us-east-1 -o prod.env
+
+# Use the appropriate file for your environment
+if [ "$NODE_ENV" = "production" ]; then
+  dotenv -e prod.env -- node app.js
+elif [ "$NODE_ENV" = "staging" ]; then
+  dotenv -e staging.env -- node app.js
+else
+  dotenv -e dev.env -- node app.js
+fi
+```
+
+#### Shared Secrets Across Services
+
+```bash
+# Create a shared secrets file for microservices
+env-secrets aws -s shared/config -r us-east-1 -o shared-secrets.env
+
+# Use in multiple services
+dotenv -e shared-secrets.env -- node service-a.js &
+dotenv -e shared-secrets.env -- node service-b.js &
+dotenv -e shared-secrets.env -- node service-c.js &
+```
+
+#### Kubernetes Init Container Pattern
+
+```bash
+# Generate secrets file in init container
+env-secrets aws -s k8s/myapp -r us-east-1 -o /shared/secrets.env
+
+# Use in main container
+dotenv -e /shared/secrets.env -- node app.js
+```
+
+### Troubleshooting File Output
+
+#### Common Issues
+
+```bash
+# Check if file was created successfully
+ls -la secrets.env
+
+# Verify file permissions
+stat secrets.env
+
+# Check file contents
+cat secrets.env
+
+# Test loading the file
+dotenv -e secrets.env -- echo $DATABASE_URL
+```
+
+#### File Permission Issues
+
+```bash
+# If you need to modify permissions later
+chmod 600 secrets.env  # Read/write for owner only
+chmod 644 secrets.env  # Read for owner and group
+```
+
+#### File Not Found Errors
+
+```bash
+# Make sure the file exists before using
+if [ -f "secrets.env" ]; then
+  dotenv -e secrets.env -- node app.js
+else
+  echo "Error: secrets.env not found"
+  exit 1
+fi
+```
+
 ## File Output Examples
 
 ### Basic File Output
@@ -588,13 +860,12 @@ app.get('/health', (req, res) => {
 env-secrets aws -s myapp/config -r us-east-1 -o secrets.env
 
 # File content (secrets.env):
-# export DATABASE_URL=postgres://user:pass@localhost:5432/myapp
-# export API_KEY=abc123
-# export REDIS_URL=redis://localhost:6379
+# DATABASE_URL=postgres://user:pass@localhost:5432/myapp
+# API_KEY=abc123
+# REDIS_URL=redis://localhost:6379
 
-# Use the file in your application
-source secrets.env
-node app.js
+# Use the file with dotenv-cli
+dotenv -- node app.js
 ```
 
 ### Docker with File Output
@@ -630,8 +901,7 @@ docker-compose up
 env-secrets aws -s k8s/myapp -r us-east-1 -o /shared/secrets.env
 
 # Use in main container
-source /shared/secrets.env
-node app.js
+dotenv -e /shared/secrets.env -- node app.js
 ```
 
 ### File Security Features
