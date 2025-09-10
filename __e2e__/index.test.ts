@@ -9,6 +9,7 @@ import {
   TestSecret,
   CreatedSecret
 } from './utils/test-utils';
+import { debugLog } from './utils/debug-logger';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -210,7 +211,7 @@ describe('End-to-End Tests', () => {
 
     describe('Output to File', () => {
       test('should write secrets to file', async () => {
-        console.log('Starting test...');
+        debugLog('Starting test...');
 
         const secret = await createTestSecret({
           name: `test-secret-file-${Date.now()}`,
@@ -218,7 +219,7 @@ describe('End-to-End Tests', () => {
             '{"API_KEY": "secret123", "DATABASE_URL": "postgres://localhost:5432/test"}',
           description: 'Secret for file output test'
         });
-        console.log('Secret created successfully');
+        debugLog('Secret created successfully');
 
         const tempFile = path.join(
           os.tmpdir(),
@@ -230,7 +231,7 @@ describe('End-to-End Tests', () => {
           getLocalStackEnv()
         );
 
-        console.log('CLI result:', {
+        debugLog('CLI result:', {
           code: result.code,
           stdout: result.stdout,
           stderr: result.stderr

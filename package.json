@@ -21,7 +21,7 @@
     "test:unit": "jest __tests__",
     "test:unit:coverage": "jest __tests__ --coverage",
     "test:e2e": "npm run build && jest --config jest.e2e.config.js",
-    "test:e2e:coverage": "npm run build && jest --config jest.e2e.config.js --coverage"
+    "test:e2e:debug": "npm run build && DEBUG=true jest --config jest.e2e.config.js"
   },
   "devDependencies": {
     "@types/debug": "^4.1.12",

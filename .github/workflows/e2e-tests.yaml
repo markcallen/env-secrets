@@ -36,13 +36,7 @@ jobs:
         run: docker compose up -d --wait localstack
 
       - name: Run the tests
-        run: yarn test:e2e:coverage
-
-      - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v5
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          directory: ./coverage-e2e
+        run: yarn test:e2e
 
       - name: Notify failures
         if: failure()

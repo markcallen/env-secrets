@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as crypto from 'crypto';
+import { debugLog, debugError, debugWarn } from './debug-logger';
 
 const execAsync = promisify(exec);
 
@@ -65,14 +66,14 @@ export async function execAwslocalCommand(
     maxBuffer: 1024 * 1024 * 10 // 10MB buffer
   };
 
-  console.log(`Executing awslocal command: ${command}`);
-  console.log(`Environment: ${JSON.stringify(environment, null, 2)}`);
+  debugLog(`Executing awslocal command: ${command}`);
+  debugLog(`Environment: ${JSON.stringify(environment, null, 2)}`);
 
   try {
     const result = await execAsync(command, execOptions);
-    console.log(`Command succeeded: ${command}`);
+    debugLog(`Command succeeded: ${command}`);
     if (result.stdout) {
-      console.log(`Stdout: ${result.stdout}`);
+      debugLog(`Stdout: ${result.stdout}`);
     }
     return result;
   } catch (error) {
@@ -85,10 +86,10 @@ export async function execAwslocalCommand(
     const stdout = execError.stdout || '';
     const stderr = execError.stderr || '';
 
-    console.error(`Command failed: ${command}`);
-    console.error(`Exit code: ${exitCode}`);
-    console.error(`Stdout: ${stdout}`);
-    console.error(`Stderr: ${stderr}`);
+    debugError(`Command failed: ${command}`);
+    debugError(`Exit code: ${exitCode}`);
+    debugError(`Stdout: ${stdout}`);
+    debugError(`Stderr: ${stderr}`);
 
     throw new AwslocalCommandError(
       command,
@@ -169,7 +170,7 @@ export class LocalStackHelper {
 
     try {
       await execAwslocalCommand(command, this.getEnvironment());
-      console.log(`Secret created successfully: ${prefixedSecretName}`);
+      debugLog(`Secret created successfully: ${prefixedSecretName}`);
 
       return {
         originalName: secret.name,
@@ -179,38 +180,36 @@ export class LocalStackHelper {
       };
     } catch (error) {
       if (error instanceof AwslocalCommandError) {
-        console.error(`Failed to create secret ${secret.name}:`);
-        console.error(`Command: ${error.command}`);
-        console.error(`Exit Code: ${error.exitCode}`);
-        console.error(`Stdout: ${error.stdout}`);
-        console.error(`Stderr: ${error.stderr}`);
-        console.error(
+        debugError(`Failed to create secret ${secret.name}:`);
+        debugError(`Command: ${error.command}`);
+        debugError(`Exit Code: ${error.exitCode}`);
+        debugError(`Stdout: ${error.stdout}`);
+        debugError(`Stderr: ${error.stderr}`);
+        debugError(
           `Environment: ${JSON.stringify(error.environment, null, 2)}`
         );
 
         // Provide helpful debugging information
         if (error.stderr.includes('already exists')) {
-          console.log(
+          debugLog(
             `Hint: Secret '${prefixedSecretName}' may already exist. Try deleting it first or use a different name.`
           );
         } else if (
           error.stderr.includes('connection') ||
           error.stderr.includes('timeout')
         ) {
-          console.log(
-            `Hint: Check if LocalStack is running at ${this.endpoint}`
-          );
-          console.log(`Hint: Try running: awslocal sts get-caller-identity`);
+          debugLog(`Hint: Check if LocalStack is running at ${this.endpoint}`);
+          debugLog(`Hint: Try running: awslocal sts get-caller-identity`);
         } else if (
           error.stderr.includes('not found') ||
           error.stderr.includes('command not found')
         ) {
-          console.log(
+          debugLog(
             `Hint: Make sure awslocal is installed: pip install awscli-local`
           );
         }
       } else {
-        console.log(
+        debugLog(
           `Unexpected error creating secret ${prefixedSecretName}:`,
           error
         );
@@ -229,26 +228,26 @@ export class LocalStackHelper {
 
     try {
       await execAwslocalCommand(command, this.getEnvironment());
-      console.log(`Secret deleted successfully: ${prefixedSecretName}`);
+      debugLog(`Secret deleted successfully: ${prefixedSecretName}`);
     } catch (error) {
       if (error instanceof AwslocalCommandError) {
         // For cleanup operations, we log warnings but don't throw unless it's critical
-        console.warn(`Failed to delete secret ${prefixedSecretName}:`);
-        console.warn(`Command: ${error.command}`);
-        console.warn(`Exit Code: ${error.exitCode}`);
-        console.warn(`Stdout: ${error.stdout}`);
-        console.warn(`Stderr: ${error.stderr}`);
+        debugWarn(`Failed to delete secret ${prefixedSecretName}:`);
+        debugWarn(`Command: ${error.command}`);
+        debugWarn(`Exit Code: ${error.exitCode}`);
+        debugWarn(`Stdout: ${error.stdout}`);
+        debugWarn(`Stderr: ${error.stderr}`);
 
         // Only throw for critical errors (not "not found" errors)
         if (
           !error.stderr.includes('not found') &&
           !error.stderr.includes('does not exist')
         ) {
-          console.log(`Critical error during cleanup - rethrowing`);
+          debugLog(`Critical error during cleanup - rethrowing`);
           throw error;
         }
       } else {
-        console.log(
+        debugLog(
           `Unexpected error deleting secret ${prefixedSecretName}:`,
           error
         );
@@ -257,7 +256,7 @@ export class LocalStackHelper {
   }
 
   async cleanupRunSecrets(): Promise<void> {
-    console.log(`Cleaning up secrets with prefix: ${this.runId}`);
+    debugLog(`Cleaning up secrets with prefix: ${this.runId}`);
 
     try {
       const allSecrets = await this.listSecrets();
@@ -265,7 +264,7 @@ export class LocalStackHelper {
         secretName.startsWith(`${this.runId}-`)
       );
 
-      console.log(
+      debugLog(
         `Found ${runSecrets.length} secrets to cleanup for run ${this.runId}`
       );
 
@@ -274,14 +273,14 @@ export class LocalStackHelper {
         try {
           await this.deleteSecret(secretName);
         } catch (error) {
-          console.warn(`Failed to cleanup secret ${secretName}:`, error);
+          debugWarn(`Failed to cleanup secret ${secretName}:`, error);
           // Continue with other secrets even if one fails
         }
       }
 
-      console.log(`Cleanup completed for run ${this.runId}`);
+      debugLog(`Cleanup completed for run ${this.runId}`);
     } catch (error) {
-      console.warn(`Failed to cleanup secrets for run ${this.runId}:`, error);
+      debugWarn(`Failed to cleanup secrets for run ${this.runId}:`, error);
       // Don't throw - cleanup failures shouldn't break tests
     }
   }
@@ -299,12 +298,12 @@ export class LocalStackHelper {
       );
     } catch (error) {
       if (error instanceof AwslocalCommandError) {
-        console.error('Failed to list secrets:');
-        console.error(`Command: ${error.command}`);
-        console.error(`Exit Code: ${error.exitCode}`);
-        console.error(`Stdout: ${error.stdout}`);
-        console.error(`Stderr: ${error.stderr}`);
-        console.error(
+        debugError('Failed to list secrets:');
+        debugError(`Command: ${error.command}`);
+        debugError(`Exit Code: ${error.exitCode}`);
+        debugError(`Stdout: ${error.stdout}`);
+        debugError(`Stderr: ${error.stderr}`);
+        debugError(
           `Environment: ${JSON.stringify(error.environment, null, 2)}`
         );
 
@@ -313,20 +312,18 @@ export class LocalStackHelper {
           error.stderr.includes('connection') ||
           error.stderr.includes('timeout')
         ) {
-          console.log(
-            `Hint: Check if LocalStack is running at ${this.endpoint}`
-          );
-          console.log(`Hint: Try running: awslocal sts get-caller-identity`);
+          debugLog(`Hint: Check if LocalStack is running at ${this.endpoint}`);
+          debugLog(`Hint: Try running: awslocal sts get-caller-identity`);
         } else if (
           error.stderr.includes('not found') ||
           error.stderr.includes('command not found')
         ) {
-          console.log(
+          debugLog(
             `Hint: Make sure awslocal is installed: pip install awscli-local`
           );
         }
       } else {
-        console.log('Unexpected error listing secrets:', error);
+        debugLog('Unexpected error listing secrets:', error);
       }
 
       // Return empty array for non-critical errors to allow tests to continue
@@ -338,62 +335,62 @@ export class LocalStackHelper {
     const maxRetries = 30;
     const retryDelay = 1000; // 1 second
 
-    console.log(`Waiting for LocalStack at ${this.endpoint}...`);
+    debugLog(`Waiting for LocalStack at ${this.endpoint}...`);
 
     for (let i = 0; i < maxRetries; i++) {
       try {
         const command = `awslocal sts get-caller-identity --region ${this.region}`;
-        console.log(`Testing LocalStack connectivity with: ${command}`);
+        debugLog(`Testing LocalStack connectivity with: ${command}`);
 
         const result = await execAwslocalCommand(
           command,
           this.getEnvironment()
         );
-        console.log('LocalStack is ready');
+        debugLog('LocalStack is ready');
         if (result.stdout) {
-          console.log(`LocalStack response: ${result.stdout}`);
+          debugLog(`LocalStack response: ${result.stdout}`);
         }
         return;
       } catch (error) {
         if (i === maxRetries - 1) {
-          console.error('LocalStack failed to start within timeout');
+          debugError('LocalStack failed to start within timeout');
 
           if (error instanceof AwslocalCommandError) {
-            console.error(`Last command: ${error.command}`);
-            console.error(`Last exit code: ${error.exitCode}`);
-            console.error(`Last stdout: ${error.stdout}`);
-            console.error(`Last stderr: ${error.stderr}`);
-            console.error(
+            debugError(`Last command: ${error.command}`);
+            debugError(`Last exit code: ${error.exitCode}`);
+            debugError(`Last stdout: ${error.stdout}`);
+            debugError(`Last stderr: ${error.stderr}`);
+            debugError(
               `Environment: ${JSON.stringify(error.environment, null, 2)}`
             );
 
             // Provide comprehensive debugging information
-            console.log('\n=== LocalStack Debugging Information ===');
-            console.log(`Endpoint: ${this.endpoint}`);
-            console.log(`Region: ${this.region}`);
-            console.log(`Access Key: ${this.accessKey}`);
-            console.log(`Secret Key: ${this.secretKey}`);
-            console.log('\n=== Troubleshooting Steps ===');
-            console.log('1. Check if LocalStack is running:');
-            console.log('   docker-compose ps');
-            console.log('2. Check LocalStack logs:');
-            console.log('   docker-compose logs localstack');
-            console.log('3. Test awslocal installation:');
-            console.log('   awslocal --version');
-            console.log('4. Test direct connectivity:');
-            console.log(`   curl ${this.endpoint}/health`);
-            console.log('5. Check if port 4566 is accessible:');
-            console.log('   netstat -tlnp | grep 4566');
+            debugLog('\n=== LocalStack Debugging Information ===');
+            debugLog(`Endpoint: ${this.endpoint}`);
+            debugLog(`Region: ${this.region}`);
+            debugLog(`Access Key: ${this.accessKey}`);
+            debugLog(`Secret Key: ${this.secretKey}`);
+            debugLog('\n=== Troubleshooting Steps ===');
+            debugLog('1. Check if LocalStack is running:');
+            debugLog('   docker-compose ps');
+            debugLog('2. Check LocalStack logs:');
+            debugLog('   docker-compose logs localstack');
+            debugLog('3. Test awslocal installation:');
+            debugLog('   awslocal --version');
+            debugLog('4. Test direct connectivity:');
+            debugLog(`   curl ${this.endpoint}/health`);
+            debugLog('5. Check if port 4566 is accessible:');
+            debugLog('   netstat -tlnp | grep 4566');
           } else {
-            console.log(`Last error: ${error.message}`);
+            debugLog(`Last error: ${error.message}`);
           }
 
           throw new Error('LocalStack failed to start within timeout');
         }
 
-        console.log(`Waiting for LocalStack... (${i + 1}/${maxRetries})`);
+        debugLog(`Waiting for LocalStack... (${i + 1}/${maxRetries})`);
         if (error instanceof AwslocalCommandError && error.stderr) {
-          console.log(`Error: ${error.stderr}`);
+          debugLog(`Error: ${error.stderr}`);
         }
 
         await new Promise((resolve) => setTimeout(resolve, retryDelay));
@@ -428,8 +425,8 @@ export async function cli(args: string[], cwd = '.'): Promise<CliResult> {
     const envVars = { ...cleanEnv, ...defaultEnv };
     const command = `node ${path.resolve('./dist/index')} ${args.join(' ')}`;
 
-    console.log(`Running CLI command: ${command}`);
-    console.log(
+    debugLog(`Running CLI command: ${command}`);
+    debugLog(
       `Environment: AWS_ENDPOINT_URL=${envVars.AWS_ENDPOINT_URL}, AWS_DEFAULT_REGION=${envVars.AWS_DEFAULT_REGION}`
     );
 
@@ -442,10 +439,10 @@ export async function cli(args: string[], cwd = '.'): Promise<CliResult> {
       };
 
       if (result.code !== 0) {
-        console.error(`CLI command failed with code ${result.code}`);
-        console.error(`Command: ${command}`);
-        console.error(`Stdout: ${result.stdout}`);
-        console.error(`Stderr: ${result.stderr}`);
+        debugError(`CLI command failed with code ${result.code}`);
+        debugError(`Command: ${command}`);
+        debugError(`Stdout: ${result.stdout}`);
+        debugError(`Stderr: ${result.stderr}`);
       }
 
       resolve(result);
@@ -483,11 +480,11 @@ export async function cliWithEnv(
     const envVars = { ...cleanEnv, ...defaultEnv, ...env };
     const command = `node ${path.resolve('./dist/index')} ${args.join(' ')}`;
 
-    console.log(`Running CLI command with custom env: ${command}`);
-    console.log(
+    debugLog(`Running CLI command with custom env: ${command}`);
+    debugLog(
       `Environment: AWS_ENDPOINT_URL=${envVars.AWS_ENDPOINT_URL}, AWS_DEFAULT_REGION=${envVars.AWS_DEFAULT_REGION}`
     );
-    console.log(`Custom env vars:`, Object.keys(env));
+    debugLog(`Custom env vars:`, Object.keys(env));
 
     exec(command, { cwd, env: envVars }, (error, stdout, stderr) => {
       const result = {
@@ -498,10 +495,10 @@ export async function cliWithEnv(
       };
 
       if (result.code !== 0) {
-        console.error(`CLI command failed with code ${result.code}`);
-        console.error(`Command: ${command}`);
-        console.error(`Stdout: ${result.stdout}`);
-        console.error(`Stderr: ${result.stderr}`);
+        debugError(`CLI command failed with code ${result.code}`);
+        debugError(`Command: ${command}`);
+        debugError(`Stdout: ${result.stdout}`);
+        debugError(`Stderr: ${result.stderr}`);
       }
 
       resolve(result);
@@ -522,7 +519,7 @@ export function cleanupTempFile(filePath: string): void {
       fs.unlinkSync(filePath);
     }
   } catch (error) {
-    console.warn(`Failed to cleanup temp file ${filePath}:`, error);
+    debugWarn(`Failed to cleanup temp file ${filePath}:`, error);
   }
 }
 
@@ -573,7 +570,7 @@ region = us-east-1
 
 export function restoreTestProfile(awsDir: string | undefined): void {
   if (!awsDir) {
-    console.warn('No AWS directory provided for profile restoration');
+    debugWarn('No AWS directory provided for profile restoration');
     return;
   }
 
@@ -597,49 +594,49 @@ export function restoreTestProfile(awsDir: string | undefined): void {
       fs.unlinkSync(configFile);
     }
   } catch (error) {
-    console.warn('Failed to restore AWS profile:', error);
+    debugWarn('Failed to restore AWS profile:', error);
   }
 }
 
 export async function checkAwslocalInstalled(): Promise<void> {
   try {
     await execAwslocalCommand('awslocal --version', {});
-    console.log('awslocal is installed and available');
+    debugLog('awslocal is installed and available');
   } catch (error) {
-    console.log('awslocal is not installed or not available in PATH');
-    console.log('');
+    debugLog('awslocal is not installed or not available in PATH');
+    debugLog('');
 
     if (error instanceof AwslocalCommandError) {
-      console.error(`Command: ${error.command}`);
-      console.error(`Exit Code: ${error.exitCode}`);
-      console.error(`Stdout: ${error.stdout}`);
-      console.error(`Stderr: ${error.stderr}`);
+      debugError(`Command: ${error.command}`);
+      debugError(`Exit Code: ${error.exitCode}`);
+      debugError(`Stdout: ${error.stdout}`);
+      debugError(`Stderr: ${error.stderr}`);
     } else {
-      console.error(`Error: ${error.message}`);
+      debugError(`Error: ${error.message}`);
     }
 
-    console.log('');
-    console.log('Please install awslocal by running:');
-    console.log('  pip install awscli-local');
-    console.log('');
-    console.log('Or using npm:');
-    console.log('  npm install -g awscli-local');
-    console.log('');
-    console.log(
+    debugLog('');
+    debugLog('Please install awslocal by running:');
+    debugLog('  pip install awscli-local');
+    debugLog('');
+    debugLog('Or using npm:');
+    debugLog('  npm install -g awscli-local');
+    debugLog('');
+    debugLog(
       'For more information, visit: https://github.com/localstack/awscli-local'
     );
-    console.log('');
-    console.log('=== Troubleshooting Steps ===');
-    console.log('1. Verify Python/pip is installed:');
-    console.log('   python --version');
-    console.log('   pip --version');
-    console.log('2. Try installing with sudo if needed:');
-    console.log('   sudo pip install awscli-local');
-    console.log('3. Check if awslocal is in your PATH:');
-    console.log('   which awslocal');
-    console.log('   echo $PATH');
-    console.log('4. Try using the full path:');
-    console.log('   /usr/local/bin/awslocal --version');
+    debugLog('');
+    debugLog('=== Troubleshooting Steps ===');
+    debugLog('1. Verify Python/pip is installed:');
+    debugLog('   python --version');
+    debugLog('   pip --version');
+    debugLog('2. Try installing with sudo if needed:');
+    debugLog('   sudo pip install awscli-local');
+    debugLog('3. Check if awslocal is in your PATH:');
+    debugLog('   which awslocal');
+    debugLog('   echo $PATH');
+    debugLog('4. Try using the full path:');
+    debugLog('   /usr/local/bin/awslocal --version');
 
     throw new Error(
       'awslocal is required for end-to-end tests but is not installed'
