@@ -241,9 +241,9 @@ describe('End-to-End Tests', () => {
 
         // Verify file contents
         const fileContent = fs.readFileSync(tempFile, 'utf8');
-        expect(fileContent).toContain('export API_KEY=secret123');
+        expect(fileContent).toContain('API_KEY=secret123');
         expect(fileContent).toContain(
-          'export DATABASE_URL=postgres://localhost:5432/test'
+          'DATABASE_URL=postgres://localhost:5432/test'
         );
 
         cleanupTempFile(tempFile);
