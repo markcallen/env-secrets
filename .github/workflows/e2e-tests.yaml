@@ -28,7 +28,7 @@ jobs:
         run: yarn build
 
       - name: Start localstack
-        run: docker-compose up -d --wait localstack
+        run: docker compose up -d --wait localstack
 
       - name: Run the tests
         run: yarn test:e2e:coverage
