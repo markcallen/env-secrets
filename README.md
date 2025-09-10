@@ -436,21 +436,124 @@ devpod up --id env-secretes-dev --provider kubernetes --ide cursor git@github.co
 
 ## Testing
 
-Run the test suite:
+This project includes both unit tests and comprehensive end-to-end tests.
+
+### Unit Tests
+
+Run the unit test suite:
 
 ```bash
-# Run all tests
-npm test
-
-# Run unit tests only
+# Run all unit tests
 npm run test:unit
 
 # Run unit tests with coverage
 npm run test:unit:coverage
-
-# Run end-to-end tests
-npm run test:e2e
 ```
+
+### End-to-End Tests
+
+The end-to-end tests use LocalStack to emulate AWS Secrets Manager and test the full CLI functionality.
+
+#### Prerequisites
+
+1. **Install awslocal** (required for e2e tests):
+
+   ```bash
+   # Using pip (recommended)
+   pip install awscli-local
+
+   # Or using npm
+   npm install -g awscli-local
+   ```
+
+2. **Start LocalStack**:
+
+   ```bash
+   docker-compose up -d localstack
+   ```
+
+3. **Wait for LocalStack to be ready**:
+
+   ```bash
+   # Check LocalStack status
+   docker-compose logs localstack
+
+   # Test connectivity
+   awslocal sts get-caller-identity
+   ```
+
+#### Running E2E Tests
+
+```bash
+# Run all tests (unit + e2e)
+npm test
+
+# Run only end-to-end tests
+npm run test:e2e
+
+# Run e2e tests with coverage
+npm run test:e2e:coverage
+
+# Run specific e2e test
+yarn build && npx jest --config jest.e2e.config.js __e2e__/index.test.ts -t "test name"
+```
+
+#### E2E Test Features
+
+The end-to-end test suite includes:
+
+- **CLI Help Commands**: Tests for help, version, and general CLI functionality
+- **AWS Secrets Manager Integration**: Tests for secret retrieval using different credential methods
+- **Output to File**: Tests for writing secrets to files with proper permissions
+- **Program Execution**: Tests for executing programs with injected environment variables
+- **Error Handling**: Tests for various error scenarios and edge cases
+- **AWS Profile Support**: Tests for both default and custom AWS profiles
+- **Region Support**: Tests for different AWS regions
+
+#### Troubleshooting E2E Tests
+
+**awslocal not found**:
+
+```bash
+# Install awslocal
+pip install awscli-local
+
+# Verify installation
+awslocal --version
+```
+
+**LocalStack not responding**:
+
+```bash
+# Check LocalStack status
+docker-compose ps
+
+# Restart LocalStack
+docker-compose restart localstack
+
+# Check logs
+docker-compose logs localstack
+```
+
+**Tests timing out**:
+
+- Ensure LocalStack is fully started before running tests
+- Check that port 4566 is not blocked
+- Verify Docker is running properly
+
+#### Environment Variables
+
+The e2e tests use these environment variables:
+
+- `LOCALSTACK_URL`: LocalStack endpoint (default: `http://localhost:4566`)
+- `AWS_ACCESS_KEY_ID`: AWS access key (default: `test`)
+- `AWS_SECRET_ACCESS_KEY`: AWS secret key (default: `test`)
+- `AWS_DEFAULT_REGION`: AWS region (default: `us-east-1`)
+- `DEBUG`: Enable debug output (optional)
+
+**Note**: The tests automatically clean up AWS environment variables (like `AWS_PROFILE`, `AWS_SESSION_TOKEN`, etc.) to ensure a clean test environment.
+
+For more detailed information, see the [E2E Test Documentation](__e2e__/README.md).
 
 ## Publishing
 

@@ -3,7 +3,6 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  collectCoverageFrom: ['src/**/*.ts'],
-  coverageDirectory: 'coverage',
-  coverageReporters: ['text', 'lcov', 'html']
+  setupFilesAfterEnv: ['<rootDir>/__e2e__/setup.ts'],
+  testTimeout: 30000 // 30 seconds timeout for e2e tests
 };

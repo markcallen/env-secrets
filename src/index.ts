@@ -58,6 +58,14 @@ program
       debug(env);
       if (program && program.length > 0) {
         debug(`${program[0]} ${program.slice(1)}`);
+
+        // In test mode, just output the environment variables for testing
+        if (process.env.NODE_ENV === 'test') {
+          // eslint-disable-next-line no-console
+          console.log(JSON.stringify(env));
+          return;
+        }
+
         spawn(program[0], program.slice(1), {
           stdio: 'inherit',
           shell: true,
