@@ -19,7 +19,7 @@ export const objectToExport = (
 ) => {
   return Object.entries(obj).reduce(
     (env, [OutputKey, OutputValue]) =>
-      `${env}export ${OutputKey}=${OutputValue}${os.EOL}`,
+      `${env}${OutputKey}=${OutputValue}${os.EOL}`,
     ''
   );
 };

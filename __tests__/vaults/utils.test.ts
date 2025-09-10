@@ -39,7 +39,7 @@ describe('vaults utils', () => {
   });
 
   describe('objectToExport', () => {
-    test('should convert object to export statements', () => {
+    test('should convert object to env vars', () => {
       const obj = {
         API_KEY: 'abc123',
         DATABASE_URL: 'postgres://localhost:5432/db',
@@ -47,7 +47,7 @@ describe('vaults utils', () => {
       };
 
       const result = objectToExport(obj);
-      const expected = `export API_KEY=abc123${os.EOL}export DATABASE_URL=postgres://localhost:5432/db${os.EOL}export DEBUG=true${os.EOL}`;
+      const expected = `API_KEY=abc123${os.EOL}DATABASE_URL=postgres://localhost:5432/db${os.EOL}DEBUG=true${os.EOL}`;
 
       expect(result).toBe(expected);
     });
@@ -68,7 +68,7 @@ describe('vaults utils', () => {
       };
 
       const result = objectToExport(obj);
-      const expected = `export STRING=hello${os.EOL}export NUMBER=42${os.EOL}export BOOLEAN=true${os.EOL}export NULL=null${os.EOL}export UNDEFINED=undefined${os.EOL}`;
+      const expected = `STRING=hello${os.EOL}NUMBER=42${os.EOL}BOOLEAN=true${os.EOL}NULL=null${os.EOL}UNDEFINED=undefined${os.EOL}`;
 
       expect(result).toBe(expected);
     });
@@ -81,7 +81,7 @@ describe('vaults utils', () => {
       };
 
       const result = objectToExport(obj);
-      const expected = `export API-KEY=abc-123${os.EOL}export DATABASE_URL=postgres://user:pass@localhost:5432/db${os.EOL}export DEBUG_MODE=true${os.EOL}`;
+      const expected = `API-KEY=abc-123${os.EOL}DATABASE_URL=postgres://user:pass@localhost:5432/db${os.EOL}DEBUG_MODE=true${os.EOL}`;
 
       expect(result).toBe(expected);
     });
