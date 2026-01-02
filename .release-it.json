@@ -7,6 +7,6 @@
     "releaseNotes": "./generate-release-notes.sh ${tagName}"
   },
   "npm": {
-    "publish": true
+    "skipChecks": true
   }
 }
