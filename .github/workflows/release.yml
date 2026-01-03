@@ -47,7 +47,7 @@ jobs:
         run: yarn build
 
       - name: Github release
-        run: yarn release ${{ inputs.release_type }} --ci
+        run: npx release-it ${{ inputs.release_type }} --ci
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
