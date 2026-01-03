@@ -1,13 +1,34 @@
-import {
-  SecretsManagerClient,
-  GetSecretValueCommand
-} from '@aws-sdk/client-secrets-manager';
-import { STSClient, GetCallerIdentityCommand } from '@aws-sdk/client-sts';
+import { SecretsManagerClient } from '@aws-sdk/client-secrets-manager';
+import { STSClient } from '@aws-sdk/client-sts';
 import { fromIni } from '@aws-sdk/credential-providers';
 
+// Mock send functions - must be declared before jest.mock calls
+const mockSecretsManagerSend = jest.fn();
+const mockSTSSend = jest.fn();
+
 // Mock the AWS SDK and dependencies
-jest.mock('@aws-sdk/client-secrets-manager');
-jest.mock('@aws-sdk/client-sts');
+jest.mock('@aws-sdk/client-secrets-manager', () => {
+  return {
+    SecretsManagerClient: jest.fn().mockImplementation(() => ({
+      send: mockSecretsManagerSend
+    })),
+    GetSecretValueCommand: jest.fn().mockImplementation((input) => ({
+      input
+    }))
+  };
+});
+
+jest.mock('@aws-sdk/client-sts', () => {
+  return {
+    STSClient: jest.fn().mockImplementation(() => ({
+      send: mockSTSSend
+    })),
+    GetCallerIdentityCommand: jest.fn().mockImplementation((input) => ({
+      input
+    }))
+  };
+});
+
 jest.mock('@aws-sdk/credential-providers');
 jest.mock('debug', () => {
   const mockDebug = jest.fn();
@@ -27,8 +48,6 @@ const mockFromIni = fromIni as jest.MockedFunction<typeof fromIni>;
 
 describe('secretsmanager', () => {
   let originalEnv: NodeJS.ProcessEnv;
-  let mockSecretsManagerSend: jest.MockedFunction<any>;
-  let mockSTSSend: jest.MockedFunction<any>;
 
   beforeEach(() => {
     // Clear all mocks
@@ -37,13 +56,6 @@ describe('secretsmanager', () => {
     // Reset process.env
     originalEnv = { ...process.env };
     process.env = { ...originalEnv };
-
-    // Setup AWS client mocks
-    mockSecretsManagerSend = jest.fn();
-    mockSTSSend = jest.fn();
-
-    mockSecretsManagerClient.prototype.send = mockSecretsManagerSend;
-    mockSTSClient.prototype.send = mockSTSSend;
   });
 
   afterEach(() => {
@@ -72,10 +84,10 @@ describe('secretsmanager', () => {
       });
 
       expect(mockSTSSend).toHaveBeenCalledWith(
-        expect.any(GetCallerIdentityCommand)
+        expect.objectContaining({ input: {} })
       );
       expect(mockSecretsManagerSend).toHaveBeenCalledWith(
-        expect.any(GetSecretValueCommand)
+        expect.objectContaining({ input: expect.anything() })
       );
       expect(result).toEqual({
         API_KEY: 'test-key',
@@ -93,7 +105,7 @@ describe('secretsmanager', () => {
       });
 
       expect(mockSTSSend).toHaveBeenCalledWith(
-        expect.any(GetCallerIdentityCommand)
+        expect.objectContaining({ input: {} })
       );
       expect(mockSecretsManagerSend).not.toHaveBeenCalled();
       expect(result).toEqual({});
