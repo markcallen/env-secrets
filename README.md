@@ -286,7 +286,7 @@ The site is configured for GitHub Pages at https://markcallen.github.io/env-secr
 nvm use
 ```
 
-Or use Node.js 20 (LTS) directly.
+Or use Node.js 24 (LTS) directly.
 
 2. **Install dependencies:**
 
