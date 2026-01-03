@@ -4,7 +4,10 @@
   "description": "get secrets from a secrets vault and inject them into the running environment",
   "main": "index.js",
   "author": "Mark C Allen (@markcallen)",
-  "repository": "markcallen/env-secrets",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/markcallen/env-secrets.git"
+  },
   "homepage": "https://github.com/markcallen/env-secrets",
   "license": "MIT",
   "private": false,
@@ -63,7 +66,7 @@
     "registry": "https://registry.npmjs.org/"
   },
   "bin": {
-    "env-secrets": "./dist/index.js"
+    "env-secrets": "dist/index.js"
   },
   "engines": {
     "node": ">=18.0.0"
