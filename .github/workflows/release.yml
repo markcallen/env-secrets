@@ -21,7 +21,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       id-token: write # Required for OIDC authentication
-      contents: read # Allows checking out the repository
+      contents: write 
+      packages: read
 
     steps:
       - name: Clone Repository

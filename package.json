@@ -1,6 +1,6 @@
 {
   "name": "env-secrets",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "get secrets from a secrets vault and inject them into the running environment",
   "main": "index.js",
   "author": "Mark C Allen (@markcallen)",
