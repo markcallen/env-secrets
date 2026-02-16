@@ -47,7 +47,7 @@ A Node.js CLI tool that retrieves secrets from vaults and injects them as enviro
 
 ## Prerequisites
 
-- Node.js 18.0.0 or higher
+- Node.js 20.0.0 or higher
 - AWS CLI (for AWS Secrets Manager integration)
 - AWS credentials configured (via AWS CLI, environment variables, or IAM roles)
 

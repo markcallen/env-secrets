@@ -135,7 +135,7 @@ yarn test:unit:coverage # Run tests with coverage
 
 ### Prerequisites
 
-- Node.js 18.0.0 or higher (see .nvmrc)
+- Node.js 20.0.0 or higher (see .nvmrc)
 - Yarn package manager
 - AWS CLI (for testing AWS integration)
 

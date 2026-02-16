@@ -10,7 +10,7 @@ The `env-secrets` tool supports AWS Secrets Manager as a secret vault. It can re
 
 - [AWS CLI](https://docs.aws.amazon.com/cli/index.html) installed and configured
 - AWS credentials with appropriate permissions to access Secrets Manager
-- Node.js 18.0.0 or higher
+- Node.js 20.0.0 or higher
 
 ## Authentication Methods
 
