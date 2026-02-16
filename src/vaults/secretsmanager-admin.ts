@@ -286,7 +286,7 @@ export const listSecrets = async (
       nextToken = result.NextToken;
     } while (nextToken);
   } catch (error: unknown) {
-    mapAwsError(error);
+    return mapAwsError(error);
   }
 
   return secrets;
