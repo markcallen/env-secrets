@@ -157,6 +157,9 @@ In addition to injecting variables into a process, `env-secrets` can manage AWS 
 - `env-secrets aws secret get`
 - `env-secrets aws secret delete`
 
+`aws secret` subcommands consistently honor `--region`, `--profile`, and `--output`.
+Use these options directly with each subcommand.
+
 ### Secret Management Examples
 
 1. **Create a secret with inline value:**
@@ -185,6 +188,13 @@ In addition to injecting variables into a process, `env-secrets` can manage AWS 
 
    ```bash
    env-secrets aws secret list --prefix my-app/dev -r us-east-1 --output table
+   ```
+
+   Multi-region validation example:
+
+   ```bash
+   env-secrets aws secret list --prefix my-app/dev -r us-west-2 --output json
+   env-secrets aws secret list --prefix my-app/dev -r us-east-1 --output json
    ```
 
 5. **Get metadata and version info (without printing secret value):**
