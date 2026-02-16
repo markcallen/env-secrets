@@ -64,7 +64,7 @@
       "eslint --fix"
     ],
     "**/*.ts": [
-      "tsc-files --noEmit",
+      "tsc-files --noEmit --project src/tsconfig.json",
       "prettier --write",
       "eslint --fix"
     ],
