@@ -33,11 +33,8 @@ localstack start
 The tests require `awslocal` to be installed, which is a wrapper around AWS CLI that automatically points to LocalStack:
 
 ```bash
-# Install awslocal using pip (recommended)
-pip install awscli-local
-
-# Or using npm
-npm install -g awscli-local
+# Install awslocal (macOS/Linux recommended)
+brew install awscli-local
 
 # Verify installation
 awslocal --version

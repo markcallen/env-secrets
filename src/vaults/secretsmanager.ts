@@ -3,8 +3,8 @@ import {
   GetSecretValueCommand
 } from '@aws-sdk/client-secrets-manager';
 import { STSClient, GetCallerIdentityCommand } from '@aws-sdk/client-sts';
-import { fromIni } from '@aws-sdk/credential-providers';
 import Debug from 'debug';
+import { buildAwsClientConfig } from './aws-config';
 
 const debug = Debug('env-secrets:secretsmanager');
 
@@ -31,10 +31,9 @@ const isCredentialsError = (error: unknown): error is AWSLikeError => {
 };
 
 const checkConnection = async (
-  region?: string,
-  credentials?: ReturnType<typeof fromIni>
+  config: ReturnType<typeof buildAwsClientConfig>
 ) => {
-  const stsClient = new STSClient({ region, credentials });
+  const stsClient = new STSClient(config);
   const command = new GetCallerIdentityCommand({});
 
   try {
@@ -56,33 +55,21 @@ const checkConnection = async (
 
 export const secretsmanager = async (options: secretsmanagerType) => {
   const { secret, profile, region } = options;
-  const {
-    AWS_ACCESS_KEY_ID: awsAccessKeyId,
-    AWS_SECRET_ACCESS_KEY: awsSecretAccessKey
-  } = process.env;
+  const config = buildAwsClientConfig({ profile, region });
 
-  let credentials;
   if (profile) {
     debug(`Using profile: ${profile}`);
-    credentials = fromIni({ profile });
-  } else if (awsAccessKeyId && awsSecretAccessKey) {
-    debug('Using environment variables');
-    credentials = undefined; // Will use environment variables automatically
-  } else {
+  } else if (config.credentials) {
     debug('Using profile: default');
-    credentials = fromIni({ profile: 'default' });
+  } else {
+    debug('Using environment variables');
   }
-
-  const config = {
-    region,
-    credentials
-  };
 
   if (!config.region) {
     debug('no region set');
   }
 
-  const connected = await checkConnection(region, credentials);
+  const connected = await checkConnection(config);
 
   if (connected) {
     const client = new SecretsManagerClient(config);

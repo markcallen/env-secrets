@@ -1,4 +1,4 @@
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import { promisify } from 'util';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -503,6 +503,66 @@ export async function cliWithEnv(
 
       resolve(result);
     });
+  });
+}
+
+export async function cliWithEnvAndStdin(
+  args: string[],
+  env: Record<string, string>,
+  stdin: string,
+  cwd = '.'
+): Promise<CliResult> {
+  return await new Promise((resolve) => {
+    const cleanEnv = { ...process.env };
+    delete cleanEnv.AWS_PROFILE;
+    delete cleanEnv.AWS_DEFAULT_PROFILE;
+    delete cleanEnv.AWS_SESSION_TOKEN;
+    delete cleanEnv.AWS_SECURITY_TOKEN;
+    delete cleanEnv.AWS_ROLE_ARN;
+    delete cleanEnv.AWS_ROLE_SESSION_NAME;
+    delete cleanEnv.AWS_WEB_IDENTITY_TOKEN_FILE;
+    delete cleanEnv.AWS_WEB_IDENTITY_TOKEN;
+
+    const defaultEnv = {
+      AWS_ENDPOINT_URL: process.env.LOCALSTACK_URL || 'http://localhost:4566',
+      AWS_ACCESS_KEY_ID: 'test',
+      AWS_SECRET_ACCESS_KEY: 'test',
+      AWS_DEFAULT_REGION: 'us-east-1',
+      AWS_REGION: 'us-east-1',
+      NODE_ENV: 'test'
+    };
+
+    const envVars = { ...cleanEnv, ...defaultEnv, ...env };
+    const child = spawn('node', [path.resolve('./dist/index'), ...args], {
+      cwd,
+      env: envVars,
+      stdio: 'pipe'
+    });
+
+    let stdout = '';
+    let stderr = '';
+    let error: Error | null = null;
+
+    child.stdout.on('data', (chunk) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk.toString();
+    });
+    child.on('error', (err) => {
+      error = err;
+    });
+    child.on('close', (code) => {
+      resolve({
+        code: code ?? (error ? 1 : 0),
+        error,
+        stdout,
+        stderr
+      });
+    });
+
+    child.stdin.write(stdin);
+    child.stdin.end();
   });
 }
 

@@ -120,7 +120,7 @@ env-secrets aws -s my-secret-name -r us-east-1 -- node app.js
 
 ## Required Permissions
 
-Your AWS credentials must have the following permissions to use Secrets Manager:
+Your AWS credentials must have the following permissions to use secret injection and secret management commands:
 
 ```json
 {
@@ -128,7 +128,14 @@ Your AWS credentials must have the following permissions to use Secrets Manager:
   "Statement": [
     {
       "Effect": "Allow",
-      "Action": ["secretsmanager:GetSecretValue"],
+      "Action": [
+        "secretsmanager:GetSecretValue",
+        "secretsmanager:CreateSecret",
+        "secretsmanager:UpdateSecret",
+        "secretsmanager:ListSecrets",
+        "secretsmanager:DescribeSecret",
+        "secretsmanager:DeleteSecret"
+      ],
       "Resource": "arn:aws:secretsmanager:*:*:secret:*"
     },
     {
@@ -139,6 +146,74 @@ Your AWS credentials must have the following permissions to use Secrets Manager:
   ]
 }
 ```
+
+## Secret Management Commands
+
+In addition to injecting variables into a process, `env-secrets` can manage AWS secrets directly:
+
+- `env-secrets aws secret create`
+- `env-secrets aws secret update`
+- `env-secrets aws secret list`
+- `env-secrets aws secret get`
+- `env-secrets aws secret delete`
+
+`aws secret` subcommands consistently honor `--region`, `--profile`, and `--output`.
+Use these options directly with each subcommand.
+
+### Secret Management Examples
+
+1. **Create a secret with inline value:**
+
+   ```bash
+   env-secrets aws secret create \
+     -n my-app/dev/api \
+     -v '{"API_KEY":"abc123"}' \
+     -r us-east-1 \
+     --output json
+   ```
+
+2. **Create from stdin (recommended for sensitive values):**
+
+   ```bash
+   echo -n 'super-secret-value' | env-secrets aws secret create -n my-app/dev/raw --value-stdin -r us-east-1
+   ```
+
+3. **Update an existing secret value:**
+
+   ```bash
+   env-secrets aws secret update -n my-app/dev/api -v '{"API_KEY":"rotated"}' -r us-east-1
+   ```
+
+4. **List secrets by prefix:**
+
+   ```bash
+   env-secrets aws secret list --prefix my-app/dev -r us-east-1 --output table
+   ```
+
+   Multi-region validation example:
+
+   ```bash
+   env-secrets aws secret list --prefix my-app/dev -r us-west-2 --output json
+   env-secrets aws secret list --prefix my-app/dev -r us-east-1 --output json
+   ```
+
+5. **Get metadata and version info (without printing secret value):**
+
+   ```bash
+   env-secrets aws secret get -n my-app/dev/api -r us-east-1 --output json
+   ```
+
+6. **Delete with explicit confirmation:**
+
+   ```bash
+   env-secrets aws secret delete -n my-app/dev/raw --recovery-days 7 --yes -r us-east-1
+   ```
+
+### Secret Management Safety Notes
+
+- `delete` requires `--yes`.
+- Use `--value-stdin` to avoid shell history leakage for sensitive values.
+- Use either `--recovery-days` or `--force-delete-without-recovery` for delete operations.
 
 ## Examples
 

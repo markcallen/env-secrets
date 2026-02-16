@@ -103,6 +103,14 @@ env-secrets aws -s my-app-secrets -r us-east-1 -- node app.js
 - `-o, --output <file>` (optional): Output secrets to a file instead of injecting into environment variables. File will be created with 0400 permissions and will not overwrite existing files
 - `-- <program-to-run>`: The program to run with the injected environment variables (only used when `-o` is not specified)
 
+For `aws secret` management subcommands (`create`, `update`, `list`, `get`, `delete`), use:
+
+- `-r, --region <region>` to target a specific region
+- `-p, --profile <profile>` to select credentials profile
+- `--output <format>` for `json` or `table`
+
+These options are honored consistently on `aws secret` subcommands.
+
 #### Examples
 
 1. **Create a secret using AWS CLI:**
@@ -459,11 +467,8 @@ The end-to-end tests use LocalStack to emulate AWS Secrets Manager and test the 
 1. **Install awslocal** (required for e2e tests):
 
    ```bash
-   # Using pip (recommended)
-   pip install awscli-local
-
-   # Or using npm
-   npm install -g awscli-local
+   # macOS/Linux (recommended)
+   brew install awscli-local
    ```
 
 2. **Start LocalStack**:
@@ -508,15 +513,15 @@ The end-to-end test suite includes:
 - **Program Execution**: Tests for executing programs with injected environment variables
 - **Error Handling**: Tests for various error scenarios and edge cases
 - **AWS Profile Support**: Tests for both default and custom AWS profiles
-- **Region Support**: Tests for different AWS regions
+- **Region Support**: Tests for different AWS regions, including multi-region `aws secret list` isolation checks
 
 #### Troubleshooting E2E Tests
 
 **awslocal not found**:
 
 ```bash
-# Install awslocal
-pip install awscli-local
+# Install awslocal (macOS/Linux)
+brew install awscli-local
 
 # Verify installation
 awslocal --version
