@@ -6,6 +6,7 @@ import {
   printData,
   readStdin,
   renderTable,
+  resolveAwsScope,
   resolveSecretValue
 } from '../../src/cli/helpers';
 
@@ -90,6 +91,30 @@ describe('cli/helpers', () => {
     Object.defineProperty(process, 'stdin', {
       value: originalStdin,
       configurable: true
+    });
+  });
+
+  it('prefers explicit aws scope options over global options', () => {
+    const command = {
+      optsWithGlobals: () => ({ profile: 'global-profile', region: 'us-west-2' })
+    };
+
+    expect(
+      resolveAwsScope({ profile: 'local-profile', region: 'us-east-1' }, command)
+    ).toEqual({
+      profile: 'local-profile',
+      region: 'us-east-1'
+    });
+  });
+
+  it('falls back to global aws scope options when local options are absent', () => {
+    const command = {
+      optsWithGlobals: () => ({ profile: 'global-profile', region: 'us-west-2' })
+    };
+
+    expect(resolveAwsScope({}, command)).toEqual({
+      profile: 'global-profile',
+      region: 'us-west-2'
     });
   });
 });

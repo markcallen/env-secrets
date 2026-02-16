@@ -1,4 +1,12 @@
 export type OutputFormat = 'json' | 'table';
+export interface AwsScopeOptions {
+  profile?: string;
+  region?: string;
+}
+
+interface CommandLikeWithGlobalOpts {
+  optsWithGlobals?: () => Record<string, unknown>;
+}
 
 export const asOutputFormat = (value: string): OutputFormat => {
   if (value !== 'json' && value !== 'table') {
@@ -113,4 +121,20 @@ export const resolveSecretValue = async (
   }
 
   return value;
+};
+
+export const resolveAwsScope = (
+  options: AwsScopeOptions,
+  command?: CommandLikeWithGlobalOpts
+): AwsScopeOptions => {
+  const globalOptions = command?.optsWithGlobals?.() || {};
+
+  const profile =
+    options.profile ||
+    (typeof globalOptions.profile === 'string' ? globalOptions.profile : undefined);
+  const region =
+    options.region ||
+    (typeof globalOptions.region === 'string' ? globalOptions.region : undefined);
+
+  return { profile, region };
 };

@@ -432,6 +432,55 @@ describe('End-to-End Tests', () => {
         expect(result.code).toBe(1);
         expect(result.stderr).toContain('requires --yes confirmation');
       });
+
+      test('should honor region flag for secret list across multiple regions', async () => {
+        const secret = await createTestSecret(
+          {
+            name: `managed-secret-multi-region-${Date.now()}`,
+            value: '{"region":"us-west-2"}',
+            description: 'Secret used for region isolation test'
+          },
+          'us-west-2'
+        );
+
+        const westResult = await cliWithEnv(
+          [
+            'aws',
+            'secret',
+            'list',
+            '--prefix',
+            secret.prefixedName,
+            '-r',
+            'us-west-2',
+            '--output',
+            'json'
+          ],
+          getLocalStackEnv()
+        );
+        expect(westResult.code).toBe(0);
+        const westRows = JSON.parse(westResult.stdout) as Array<{ name: string }>;
+        expect(westRows.some((row) => row.name === secret.prefixedName)).toBe(
+          true
+        );
+
+        const eastResult = await cliWithEnv(
+          [
+            'aws',
+            'secret',
+            'list',
+            '--prefix',
+            secret.prefixedName,
+            '-r',
+            'us-east-1',
+            '--output',
+            'json'
+          ],
+          getLocalStackEnv()
+        );
+        expect(eastResult.code).toBe(0);
+        const eastRows = JSON.parse(eastResult.stdout) as Array<{ name: string }>;
+        expect(eastRows).toEqual([]);
+      });
     });
   });
 });

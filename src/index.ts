@@ -19,6 +19,7 @@ import {
   asOutputFormat,
   printData,
   parseRecoveryDays,
+  resolveAwsScope,
   resolveSecretValue
 } from './cli/helpers';
 import { objectToExport } from './vaults/utils';
@@ -116,9 +117,16 @@ secretCommand
   .option('-t, --tag <tag...>', 'tag in key=value format')
   .option('-p, --profile <profile>', 'profile to use')
   .option('-r, --region <region>', 'region to use')
-  .option('--output <format>', 'output format: json|table', 'table')
-  .action(async (options) => {
+  .option('--output <format>', 'output format: json|table')
+  .action(async (options, command) => {
     try {
+      const { profile, region } = resolveAwsScope(options, command);
+      const globalOptions = command.optsWithGlobals();
+      const output =
+        options.output ??
+        (typeof globalOptions.output === 'string'
+          ? globalOptions.output
+          : 'table');
       const value = await resolveSecretValue(options.value, options.valueStdin);
       if (!value) {
         throw new Error(
@@ -132,12 +140,12 @@ secretCommand
         description: options.description,
         kmsKeyId: options.kmsKeyId,
         tags: options.tag,
-        profile: options.profile,
-        region: options.region
+        profile,
+        region
       });
 
       printData(
-        asOutputFormat(options.output),
+        asOutputFormat(output),
         [
           { key: 'name', label: 'Name' },
           { key: 'arn', label: 'ARN' },
@@ -160,9 +168,16 @@ secretCommand
   .option('-k, --kms-key-id <kmsKeyId>', 'kms key id')
   .option('-p, --profile <profile>', 'profile to use')
   .option('-r, --region <region>', 'region to use')
-  .option('--output <format>', 'output format: json|table', 'table')
-  .action(async (options) => {
+  .option('--output <format>', 'output format: json|table')
+  .action(async (options, command) => {
     try {
+      const { profile, region } = resolveAwsScope(options, command);
+      const globalOptions = command.optsWithGlobals();
+      const output =
+        options.output ??
+        (typeof globalOptions.output === 'string'
+          ? globalOptions.output
+          : 'table');
       const value = await resolveSecretValue(options.value, options.valueStdin);
       if (!value && !options.description && !options.kmsKeyId) {
         throw new Error(
@@ -175,12 +190,12 @@ secretCommand
         value,
         description: options.description,
         kmsKeyId: options.kmsKeyId,
-        profile: options.profile,
-        region: options.region
+        profile,
+        region
       });
 
       printData(
-        asOutputFormat(options.output),
+        asOutputFormat(output),
         [
           { key: 'name', label: 'Name' },
           { key: 'arn', label: 'ARN' },
@@ -200,14 +215,21 @@ secretCommand
   .option('-t, --tag <tag...>', 'filter tags in key=value format')
   .option('-p, --profile <profile>', 'profile to use')
   .option('-r, --region <region>', 'region to use')
-  .option('--output <format>', 'output format: json|table', 'table')
-  .action(async (options) => {
+  .option('--output <format>', 'output format: json|table')
+  .action(async (options, command) => {
     try {
+      const { profile, region } = resolveAwsScope(options, command);
+      const globalOptions = command.optsWithGlobals();
+      const output =
+        options.output ??
+        (typeof globalOptions.output === 'string'
+          ? globalOptions.output
+          : 'table');
       const result = await listSecrets({
         prefix: options.prefix,
         tags: options.tag,
-        profile: options.profile,
-        region: options.region
+        profile,
+        region
       });
       const rows = result.map((secret) => ({
         name: secret.name,
@@ -216,7 +238,7 @@ secretCommand
       }));
 
       printData(
-        asOutputFormat(options.output),
+        asOutputFormat(output),
         [
           { key: 'name', label: 'Name' },
           { key: 'description', label: 'Description' },
@@ -235,13 +257,20 @@ secretCommand
   .requiredOption('-n, --name <name>', 'secret name')
   .option('-p, --profile <profile>', 'profile to use')
   .option('-r, --region <region>', 'region to use')
-  .option('--output <format>', 'output format: json|table', 'table')
-  .action(async (options) => {
+  .option('--output <format>', 'output format: json|table')
+  .action(async (options, command) => {
     try {
+      const { profile, region } = resolveAwsScope(options, command);
+      const globalOptions = command.optsWithGlobals();
+      const output =
+        options.output ??
+        (typeof globalOptions.output === 'string'
+          ? globalOptions.output
+          : 'table');
       const result = await getSecretMetadata({
         name: options.name,
-        profile: options.profile,
-        region: options.region
+        profile,
+        region
       });
 
       const row = {
@@ -255,7 +284,7 @@ secretCommand
       };
 
       printData(
-        asOutputFormat(options.output),
+        asOutputFormat(output),
         [
           { key: 'name', label: 'Name' },
           { key: 'arn', label: 'ARN' },
@@ -289,9 +318,16 @@ secretCommand
   .option('-y, --yes', 'confirm delete action', false)
   .option('-p, --profile <profile>', 'profile to use')
   .option('-r, --region <region>', 'region to use')
-  .option('--output <format>', 'output format: json|table', 'table')
-  .action(async (options) => {
+  .option('--output <format>', 'output format: json|table')
+  .action(async (options, command) => {
     try {
+      const { profile, region } = resolveAwsScope(options, command);
+      const globalOptions = command.optsWithGlobals();
+      const output =
+        options.output ??
+        (typeof globalOptions.output === 'string'
+          ? globalOptions.output
+          : 'table');
       if (!options.yes) {
         throw new Error('Delete requires --yes confirmation.');
       }
@@ -306,12 +342,12 @@ secretCommand
         name: options.name,
         recoveryDays: options.recoveryDays,
         forceDeleteWithoutRecovery: options.forceDeleteWithoutRecovery,
-        profile: options.profile,
-        region: options.region
+        profile,
+        region
       });
 
       printData(
-        asOutputFormat(options.output),
+        asOutputFormat(output),
         [
           { key: 'name', label: 'Name' },
           { key: 'arn', label: 'ARN' },
