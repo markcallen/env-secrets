@@ -8,7 +8,10 @@ import {
   UpdateSecretCommand
 } from '@aws-sdk/client-secrets-manager';
 import { GetCallerIdentityCommand, STSClient } from '@aws-sdk/client-sts';
+import Debug from 'debug';
 import { buildAwsClientConfig } from './aws-config';
+
+const debug = Debug('env-secrets:secretsmanager-admin');
 
 export interface AwsSecretCommandOptions {
   profile?: string;
@@ -66,6 +69,8 @@ interface AWSLikeError {
   message?: string;
 }
 
+// Allowed characters are documented by AWS Secrets Manager naming rules.
+// See: https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_limits.html
 const SECRET_NAME_PATTERN = /^[A-Za-z0-9/_+=.@-]+$/;
 
 const formatDate = (value?: Date): string | undefined => {
@@ -110,7 +115,7 @@ const tagsToRecord = (tags?: Tag[]): Record<string, string> | undefined => {
     }
   }
 
-  return result;
+  return Object.keys(result).length > 0 ? result : undefined;
 };
 
 const mapAwsError = (error: unknown, secretName?: string): never => {
@@ -154,6 +159,11 @@ const ensureConnected = async (
 
 const createClient = async (options: AwsSecretCommandOptions) => {
   const config = buildAwsClientConfig(options);
+  debug('Creating AWS clients', {
+    hasProfile: Boolean(options.profile),
+    region: options.region,
+    hasEndpoint: Boolean(config.endpoint)
+  });
   await ensureConnected(config);
   return new SecretsManagerClient(config);
 };
@@ -170,6 +180,10 @@ export const createSecret = async (
   options: SecretCreateOptions
 ): Promise<{ arn?: string; name?: string; versionId?: string }> => {
   validateSecretName(options.name);
+  debug('createSecret called', {
+    name: options.name,
+    hasTags: !!options.tags?.length
+  });
 
   const client = await createClient(options);
   const tags = parseTags(options.tags);
@@ -191,8 +205,7 @@ export const createSecret = async (
       versionId: result.VersionId
     };
   } catch (error: unknown) {
-    mapAwsError(error, options.name);
-    throw new Error('Unexpected error while creating secret.');
+    return mapAwsError(error, options.name);
   }
 };
 
@@ -200,6 +213,7 @@ export const updateSecret = async (
   options: SecretUpdateOptions
 ): Promise<{ arn?: string; name?: string; versionId?: string }> => {
   validateSecretName(options.name);
+  debug('updateSecret called', { name: options.name });
 
   const client = await createClient(options);
 
@@ -219,14 +233,17 @@ export const updateSecret = async (
       versionId: result.VersionId
     };
   } catch (error: unknown) {
-    mapAwsError(error, options.name);
-    throw new Error('Unexpected error while updating secret.');
+    return mapAwsError(error, options.name);
   }
 };
 
 export const listSecrets = async (
   options: SecretListOptions
 ): Promise<SecretSummary[]> => {
+  debug('listSecrets called', {
+    prefix: options.prefix,
+    hasTags: !!options.tags?.length
+  });
   const client = await createClient(options);
   const requiredTags = parseTags(options.tags);
   const secrets: SecretSummary[] = [];
@@ -279,6 +296,7 @@ export const getSecretMetadata = async (
   options: AwsSecretCommandOptions & { name: string }
 ): Promise<SecretMetadata> => {
   validateSecretName(options.name);
+  debug('getSecretMetadata called', { name: options.name });
   const client = await createClient(options);
 
   try {
@@ -299,8 +317,7 @@ export const getSecretMetadata = async (
       tags: tagsToRecord(result.Tags)
     };
   } catch (error: unknown) {
-    mapAwsError(error, options.name);
-    throw new Error('Unexpected error while getting secret metadata.');
+    return mapAwsError(error, options.name);
   }
 };
 
@@ -308,6 +325,11 @@ export const deleteSecret = async (
   options: SecretDeleteOptions
 ): Promise<{ arn?: string; name?: string; deletedDate?: string }> => {
   validateSecretName(options.name);
+  debug('deleteSecret called', {
+    name: options.name,
+    recoveryDays: options.recoveryDays,
+    forceDeleteWithoutRecovery: options.forceDeleteWithoutRecovery
+  });
   const client = await createClient(options);
 
   try {
@@ -325,7 +347,6 @@ export const deleteSecret = async (
       deletedDate: formatDate(result.DeletionDate)
     };
   } catch (error: unknown) {
-    mapAwsError(error, options.name);
-    throw new Error('Unexpected error while deleting secret.');
+    return mapAwsError(error, options.name);
   }
 };

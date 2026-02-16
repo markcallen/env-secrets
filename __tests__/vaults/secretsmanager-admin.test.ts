@@ -103,6 +103,62 @@ describe('secretsmanager-admin', () => {
     });
   });
 
+  it('supports tags with multiple equals signs', async () => {
+    mockSecretsManagerSend.mockResolvedValueOnce({
+      Name: 'test-secret',
+      ARN: 'arn:test',
+      VersionId: 'v1'
+    });
+
+    await createSecret({
+      name: 'test-secret',
+      value: 'value',
+      tags: ['url=https://example.com?a=1'],
+      region: 'us-east-1'
+    });
+
+    expect(mockSecretsManagerSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          Tags: [{ Key: 'url', Value: 'https://example.com?a=1' }]
+        })
+      })
+    );
+  });
+
+  it('throws for malformed tags', async () => {
+    await expect(
+      createSecret({
+        name: 'test-secret',
+        value: 'value',
+        tags: ['invalid-tag'],
+        region: 'us-east-1'
+      })
+    ).rejects.toThrow('Invalid tag format');
+  });
+
+  it('omits tags when none are provided', async () => {
+    mockSecretsManagerSend.mockResolvedValueOnce({
+      Name: 'test-secret',
+      ARN: 'arn:test',
+      VersionId: 'v1'
+    });
+
+    await createSecret({
+      name: 'test-secret',
+      value: 'value',
+      region: 'us-east-1'
+    });
+
+    expect(mockSecretsManagerSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          Tags: undefined
+        })
+      })
+    );
+  });
+
   it('maps create secret AlreadyExistsException', async () => {
     mockSecretsManagerSend.mockRejectedValueOnce({
       name: 'AlreadyExistsException'
@@ -169,6 +225,29 @@ describe('secretsmanager-admin', () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].name).toBe('app/one');
+  });
+
+  it('ignores invalid AWS tags during tag filtering', async () => {
+    mockSecretsManagerSend.mockResolvedValueOnce({
+      SecretList: [
+        {
+          Name: 'app/one',
+          Tags: [{ Key: undefined, Value: 'dev' }]
+        },
+        {
+          Name: 'app/two',
+          Tags: [{ Key: 'env', Value: 'dev' }]
+        }
+      ]
+    });
+
+    const result = await listSecrets({
+      tags: ['env=dev'],
+      region: 'us-east-1'
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].name).toBe('app/two');
   });
 
   it('returns secret metadata without secret value', async () => {
