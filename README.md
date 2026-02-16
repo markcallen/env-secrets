@@ -459,11 +459,8 @@ The end-to-end tests use LocalStack to emulate AWS Secrets Manager and test the 
 1. **Install awslocal** (required for e2e tests):
 
    ```bash
-   # Using pip (recommended)
-   pip install awscli-local
-
-   # Or using npm
-   npm install -g awscli-local
+   # macOS/Linux (recommended)
+   brew install awscli-local
    ```
 
 2. **Start LocalStack**:
@@ -515,8 +512,8 @@ The end-to-end test suite includes:
 **awslocal not found**:
 
 ```bash
-# Install awslocal
-pip install awscli-local
+# Install awslocal (macOS/Linux)
+brew install awscli-local
 
 # Verify installation
 awslocal --version

@@ -51,7 +51,7 @@ Always run quaity checks after creating or modifing files
 ### Testing Strategy
 
 Always run unit tests after creating or modifying files.  
-Always run end to end tests before pushing code to a remote git repository.
+Always start Docker Compose LocalStack and run end to end tests before pushing code to a remote git repository.
 
 - **Unit Tests**: Jest framework, located in `__tests__/`
 - **E2E Tests**: Located in `__e2e__/`
@@ -60,6 +60,7 @@ Always run end to end tests before pushing code to a remote git repository.
   - `yarn test` - runs all tests
   - `yarn test:unit` - runs unit tests only
   - `yarn test:e2e` - builds and runs e2e tests
+  - `docker compose up -d localstack` - start LocalStack for e2e tests
 
 ## Project Structure
 
@@ -120,8 +121,9 @@ yarn test:unit:coverage # Run tests with coverage
 
 1. Run `yarn prettier:fix && yarn lint` to ensure code quality
 2. Run `yarn test` to ensure all tests pass
-3. Update tests for new features or bug fixes
-4. Update documentation if needed
+3. Run `docker compose up -d localstack` and then `yarn test:e2e` before pushing
+4. Update tests for new features or bug fixes
+5. Update documentation if needed
 
 ### Pull Request Process
 
@@ -139,6 +141,8 @@ yarn test:unit:coverage # Run tests with coverage
 - Node.js 20.0.0 or higher (see .nvmrc)
 - Yarn package manager
 - AWS CLI (for testing AWS integration)
+- Homebrew (macOS/Linux) with `awscli-local` installed:
+  - `brew install awscli-local`
 
 ### Setup
 
@@ -146,5 +150,6 @@ yarn test:unit:coverage # Run tests with coverage
 git clone https://github.com/markcallen/env-secrets.git
 cd env-secrets
 yarn install
+brew install awscli-local
 yarn build
 ```

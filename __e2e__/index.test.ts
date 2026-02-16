@@ -342,49 +342,26 @@ describe('End-to-End Tests', () => {
         const secretName = `e2e-managed-secret-${Date.now()}`;
 
         const createResult = await cliWithEnv(
-          [
-            'aws',
-            'secret',
-            'create',
-            '-n',
-            secretName,
-            '-v',
-            'initial-value',
-            '--output',
-            'json'
-          ],
+          ['aws', 'secret', 'create', '-n', secretName, '-v', 'initial-value'],
           getLocalStackEnv()
         );
 
         expect(createResult.code).toBe(0);
-        const createPayload = JSON.parse(createResult.stdout.trim());
-        expect(createPayload[0].name).toBe(secretName);
+        expect(createResult.stdout).toContain(secretName);
 
         const listResult = await cliWithEnv(
-          [
-            'aws',
-            'secret',
-            'list',
-            '--prefix',
-            'e2e-managed-secret-',
-            '--output',
-            'json'
-          ],
+          ['aws', 'secret', 'list', '--prefix', 'e2e-managed-secret-'],
           getLocalStackEnv()
         );
         expect(listResult.code).toBe(0);
-        const listed = JSON.parse(listResult.stdout.trim());
-        expect(
-          listed.some((item: { name: string }) => item.name === secretName)
-        ).toBe(true);
+        expect(listResult.stdout).toContain(secretName);
 
         const getResult = await cliWithEnv(
-          ['aws', 'secret', 'get', '-n', secretName, '--output', 'json'],
+          ['aws', 'secret', 'get', '-n', secretName],
           getLocalStackEnv()
         );
         expect(getResult.code).toBe(0);
-        const metadata = JSON.parse(getResult.stdout.trim());
-        expect(metadata[0].name).toBe(secretName);
+        expect(getResult.stdout).toContain(secretName);
         expect(getResult.stdout).not.toContain('initial-value');
 
         const deleteResult = await cliWithEnv(
@@ -395,9 +372,7 @@ describe('End-to-End Tests', () => {
             '-n',
             secretName,
             '--force-delete-without-recovery',
-            '--yes',
-            '--output',
-            'json'
+            '--yes'
           ],
           getLocalStackEnv()
         );

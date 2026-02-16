@@ -28,6 +28,48 @@ Currently supported provider: `aws`
 - `-p, --profile <profile>` - AWS profile to use (defaults to environment variables or IAM role)
 - `-o, --output <file>` - Output secrets to a file instead of injecting into environment variables. File will be created with 0400 permissions and will not overwrite existing files
 
+## AWS Secret Management Commands
+
+Use `env-secrets aws secret <command>` to manage AWS Secrets Manager secrets directly.
+
+### Commands
+
+- `create` - Create a new secret
+- `update` - Update secret value or metadata
+- `list` - List secrets
+- `get` - Get secret metadata/version info
+- `delete` - Delete a secret
+
+### Shared Options
+
+- `-r, --region <region>` - AWS region
+- `-p, --profile <profile>` - AWS profile
+- `--output <format>` - Output format: `json` or `table` (default: `table`)
+
+### Command-Specific Options
+
+- `create`
+  - `-n, --name <name>` (required)
+  - `-v, --value <value>` or `--value-stdin`
+  - `-d, --description <description>`
+  - `-k, --kms-key-id <kmsKeyId>`
+  - `-t, --tag <key=value...>`
+- `update`
+  - `-n, --name <name>` (required)
+  - `-v, --value <value>` or `--value-stdin`
+  - `-d, --description <description>`
+  - `-k, --kms-key-id <kmsKeyId>`
+- `list`
+  - `--prefix <prefix>`
+  - `-t, --tag <key=value...>`
+- `get`
+  - `-n, --name <name>` (required)
+- `delete`
+  - `-n, --name <name>` (required)
+  - `-y, --yes` (required for delete)
+  - `--recovery-days <7-30>`
+  - `--force-delete-without-recovery`
+
 ### Global Options
 
 - `--help` - Show help information
@@ -129,6 +171,31 @@ node app.js
 # Or use with Docker
 env-secrets aws -s docker-secrets -r us-east-1 -o .env
 docker run --env-file .env my-app:latest
+```
+
+### Secret Management
+
+```bash
+# Create
+env-secrets aws secret create -n app/dev/api -v '{"API_KEY":"abc123"}' --output json
+
+# Create from stdin (recommended for sensitive values)
+echo -n 'super-secret-value' | env-secrets aws secret create -n app/dev/raw --value-stdin
+
+# Update value
+env-secrets aws secret update -n app/dev/api -v '{"API_KEY":"xyz789"}'
+
+# Update from stdin
+echo -n 'rotated-value' | env-secrets aws secret update -n app/dev/raw --value-stdin
+
+# List
+env-secrets aws secret list --prefix app/dev --output table
+
+# Get metadata (does not print secret value)
+env-secrets aws secret get -n app/dev/api --output json
+
+# Delete with confirmation
+env-secrets aws secret delete -n app/dev/raw --recovery-days 7 --yes
 ```
 
 ## Environment Variable Behavior
