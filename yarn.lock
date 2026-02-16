@@ -905,6 +905,13 @@
   resolved "https://registry.yarnpkg.com/@eslint/js/-/js-8.57.1.tgz#de633db3ec2ef6a3c89e2f19038063e8a122e2c2"
   integrity sha512-d9zaMRSTIKDLhctzH12MtXvJKSSUhaHcjV+2Z+GK+EEY7XKpP5yR4x+N3TAcHTcu963nIr+TMcCb4DBCYX1z6Q==
 
+"@everydaydevopsio/ballast@^3.2.1":
+  version "3.2.1"
+  resolved "https://registry.yarnpkg.com/@everydaydevopsio/ballast/-/ballast-3.2.1.tgz#1f3ac8658f1e9c85a9749d63e11d6e8abf397201"
+  integrity sha512-ce3sLbnWKhYlxIUD9XC25zOrgvWYYiY7fgpWub8eaAnzLxXdHDW3kEItiT81fq9+pw1TFx0psnlHxgCtck7DJg==
+  dependencies:
+    yaml "^2.8.2"
+
 "@humanwhocodes/config-array@^0.13.0":
   version "0.13.0"
   resolved "https://registry.yarnpkg.com/@humanwhocodes/config-array/-/config-array-0.13.0.tgz#fb907624df3256d04b9aa2df50d7aa97ec648748"
@@ -3441,6 +3448,11 @@ globals@^13.19.0:
   dependencies:
     type-fest "^0.20.2"
 
+globals@^16.0.0:
+  version "16.5.0"
+  resolved "https://registry.yarnpkg.com/globals/-/globals-16.5.0.tgz#ccf1594a437b97653b2be13ed4d8f5c9f850cac1"
+  integrity sha512-c/c15i26VrJ4IRt5Z89DnIzCGDn9EcebibhAOjw5ibqEHsE1wLUgkPn9RDmNcUKyU87GeaL633nyJ+pplFR2ZQ==
+
 globby@13.1.4:
   version "13.1.4"
   resolved "https://registry.yarnpkg.com/globby/-/globby-13.1.4.tgz#2f91c116066bcec152465ba36e5caa4a13c01317"
@@ -5808,6 +5820,11 @@ ts-node@^10.9.2:
     v8-compile-cache-lib "^3.0.1"
     yn "3.1.1"
 
+tsc-files@^1.1.4:
+  version "1.1.4"
+  resolved "https://registry.yarnpkg.com/tsc-files/-/tsc-files-1.1.4.tgz#e0b2042a9494500f528769f52a0d0105a48457dd"
+  integrity sha512-RePsRsOLru3BPpnf237y1Xe1oCGta8rmSYzM76kYo5tLGsv5R2r3s64yapYorGTPuuLyfS9NVbh9ydzmvNie2w==
+
 tslib@^1.8.1:
   version "1.14.1"
   resolved "https://registry.npmjs.org/tslib/-/tslib-1.14.1.tgz"
@@ -6157,6 +6174,11 @@ yaml@2.3.1:
   version "2.3.1"
   resolved "https://registry.yarnpkg.com/yaml/-/yaml-2.3.1.tgz#02fe0975d23cd441242aa7204e09fc28ac2ac33b"
   integrity sha512-2eHWfjaoXgTBC2jNM1LRef62VQa0umtvRiDSk6HSzW7RvS5YtkabJrwYLLEKWBc8a5U2PTSCs+dJjUTJdlHsWQ==
+
+yaml@^2.8.2:
+  version "2.8.2"
+  resolved "https://registry.yarnpkg.com/yaml/-/yaml-2.8.2.tgz#5694f25eca0ce9c3e7a9d9e00ce0ddabbd9e35c5"
+  integrity sha512-mplynKqc1C2hTVYxd0PU2xQAc22TI1vShAYGksCCfxbn/dFwnHTNi1bvYsBTkhdUNtGIf5xNOg938rrSSYvS9A==
 
 yargs-parser@21.1.1, yargs-parser@^21.1.1:
   version "21.1.1"
