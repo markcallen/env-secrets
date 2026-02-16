@@ -2,6 +2,7 @@ import {
   LocalStackHelper,
   cli,
   cliWithEnv,
+  cliWithEnvAndStdin,
   createTempFile,
   cleanupTempFile,
   createTestProfile,
@@ -332,7 +333,129 @@ describe('End-to-End Tests', () => {
         const result = await cliWithEnv(['aws'], getLocalStackEnv());
 
         expect(result.code).toBe(1);
-        expect(result.stderr).toContain('required option');
+        expect(result.stderr).toContain('Missing required option --secret');
+      });
+    });
+
+    describe('AWS Secret Management Commands', () => {
+      test('should create, list, get, and delete a secret', async () => {
+        const secretName = `e2e-managed-secret-${Date.now()}`;
+
+        const createResult = await cliWithEnv(
+          [
+            'aws',
+            'secret',
+            'create',
+            '-n',
+            secretName,
+            '-v',
+            'initial-value',
+            '--output',
+            'json'
+          ],
+          getLocalStackEnv()
+        );
+
+        expect(createResult.code).toBe(0);
+        const createPayload = JSON.parse(createResult.stdout.trim());
+        expect(createPayload[0].name).toBe(secretName);
+
+        const listResult = await cliWithEnv(
+          [
+            'aws',
+            'secret',
+            'list',
+            '--prefix',
+            'e2e-managed-secret-',
+            '--output',
+            'json'
+          ],
+          getLocalStackEnv()
+        );
+        expect(listResult.code).toBe(0);
+        const listed = JSON.parse(listResult.stdout.trim());
+        expect(
+          listed.some((item: { name: string }) => item.name === secretName)
+        ).toBe(true);
+
+        const getResult = await cliWithEnv(
+          ['aws', 'secret', 'get', '-n', secretName, '--output', 'json'],
+          getLocalStackEnv()
+        );
+        expect(getResult.code).toBe(0);
+        const metadata = JSON.parse(getResult.stdout.trim());
+        expect(metadata[0].name).toBe(secretName);
+        expect(getResult.stdout).not.toContain('initial-value');
+
+        const deleteResult = await cliWithEnv(
+          [
+            'aws',
+            'secret',
+            'delete',
+            '-n',
+            secretName,
+            '--force-delete-without-recovery',
+            '--yes',
+            '--output',
+            'json'
+          ],
+          getLocalStackEnv()
+        );
+        expect(deleteResult.code).toBe(0);
+      });
+
+      test('should update secret value from stdin', async () => {
+        const secret = await createTestSecret({
+          name: `managed-secret-stdin-${Date.now()}`,
+          value: 'initial-value',
+          description: 'Secret for stdin update test'
+        });
+
+        const updateResult = await cliWithEnvAndStdin(
+          [
+            'aws',
+            'secret',
+            'update',
+            '-n',
+            secret.prefixedName,
+            '--value-stdin'
+          ],
+          getLocalStackEnv(),
+          'stdin-updated-value'
+        );
+
+        expect(updateResult.code).toBe(0);
+        expect(updateResult.stderr).toBe('');
+
+        const deleteResult = await cliWithEnv(
+          [
+            'aws',
+            'secret',
+            'delete',
+            '-n',
+            secret.prefixedName,
+            '--force-delete-without-recovery',
+            '--yes'
+          ],
+          getLocalStackEnv()
+        );
+        expect(deleteResult.code).toBe(0);
+      });
+
+      test('should require confirmation for delete', async () => {
+        const secret = await createTestSecret({
+          name: `managed-secret-confirm-${Date.now()}`,
+          value: 'value',
+          description: 'Secret for delete confirmation test'
+        });
+
+        const result = await cliWithEnv(
+          ['aws', 'secret', 'delete', '-n', secret.prefixedName],
+          getLocalStackEnv()
+        );
+
+        expect(result.code).toBe(1);
+        expect(result.stderr).toContain('requires --yes confirmation');
       });
     });
   });
