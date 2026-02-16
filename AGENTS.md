@@ -130,6 +130,7 @@ yarn test:unit:coverage # Run tests with coverage
 3. Add tests for new functionality
 4. Ensure all CI checks pass
 5. Submit a pull request with a clear description
+6. Always request a GitHub Copilot review on every new pull request
 
 ## Development Environment
 
