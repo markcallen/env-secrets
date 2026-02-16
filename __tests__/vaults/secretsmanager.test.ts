@@ -110,6 +110,28 @@ describe('secretsmanager', () => {
       expect(mockSecretsManagerSend).not.toHaveBeenCalled();
       expect(result).toEqual({});
     });
+
+    it('should surface a clean error when profile credentials cannot be loaded', async () => {
+      const consoleErrorSpy = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+      mockSTSSend.mockRejectedValueOnce({
+        name: 'CredentialsProviderError',
+        message: 'Could not load credentials from any providers'
+      });
+
+      const result = await secretsmanager({
+        secret: 'my-secret',
+        profile: 'missing-profile',
+        region: 'us-east-1'
+      });
+
+      expect(consoleErrorSpy).toHaveBeenCalledWith(
+        'Could not load credentials from any providers'
+      );
+      expect(result).toEqual({});
+      expect(mockSecretsManagerSend).not.toHaveBeenCalled();
+    });
   });
 
   describe('credential handling', () => {
@@ -438,7 +460,10 @@ describe('secretsmanager', () => {
       });
 
       expect(mockFromIni).toHaveBeenCalledWith({ profile: 'production' });
-      expect(mockSTSClient).toHaveBeenCalledWith({ region: 'us-west-2' });
+      expect(mockSTSClient).toHaveBeenCalledWith({
+        region: 'us-west-2',
+        credentials: mockCredentials
+      });
       expect(mockSecretsManagerClient).toHaveBeenCalledWith({
         region: 'us-west-2',
         credentials: mockCredentials

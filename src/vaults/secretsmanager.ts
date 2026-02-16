@@ -14,8 +14,27 @@ interface secretsmanagerType {
   region?: string;
 }
 
-const checkConnection = async (region?: string) => {
-  const stsClient = new STSClient({ region });
+interface AWSLikeError {
+  name?: string;
+  message?: string;
+}
+
+const isCredentialsError = (error: unknown): error is AWSLikeError => {
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const errorName = 'name' in error ? error.name : undefined;
+  return (
+    errorName === 'CredentialsError' || errorName === 'CredentialsProviderError'
+  );
+};
+
+const checkConnection = async (
+  region?: string,
+  credentials?: ReturnType<typeof fromIni>
+) => {
+  const stsClient = new STSClient({ region, credentials });
   const command = new GetCallerIdentityCommand({});
 
   try {
@@ -23,6 +42,12 @@ const checkConnection = async (region?: string) => {
     debug(data);
     return true;
   } catch (err) {
+    if (isCredentialsError(err) && err.message) {
+      // eslint-disable-next-line no-console
+      console.error(err.message);
+      return false;
+    }
+
     // eslint-disable-next-line no-console
     console.error(err);
     return false;
@@ -57,7 +82,7 @@ export const secretsmanager = async (options: secretsmanagerType) => {
     debug('no region set');
   }
 
-  const connected = await checkConnection(region);
+  const connected = await checkConnection(region, credentials);
 
   if (connected) {
     const client = new SecretsManagerClient(config);
