@@ -458,7 +458,9 @@ describe('End-to-End Tests', () => {
           getLocalStackEnv()
         );
         expect(westResult.code).toBe(0);
-        const westRows = JSON.parse(westResult.stdout) as Array<{ name: string }>;
+        const westRows = JSON.parse(westResult.stdout) as Array<{
+          name: string;
+        }>;
         expect(westRows.some((row) => row.name === secret.prefixedName)).toBe(
           true
         );
@@ -478,7 +480,9 @@ describe('End-to-End Tests', () => {
           getLocalStackEnv()
         );
         expect(eastResult.code).toBe(0);
-        const eastRows = JSON.parse(eastResult.stdout) as Array<{ name: string }>;
+        const eastRows = JSON.parse(eastResult.stdout) as Array<{
+          name: string;
+        }>;
         expect(eastRows).toEqual([]);
       });
     });

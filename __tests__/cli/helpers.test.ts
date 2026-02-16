@@ -96,11 +96,17 @@ describe('cli/helpers', () => {
 
   it('prefers explicit aws scope options over global options', () => {
     const command = {
-      optsWithGlobals: () => ({ profile: 'global-profile', region: 'us-west-2' })
+      optsWithGlobals: () => ({
+        profile: 'global-profile',
+        region: 'us-west-2'
+      })
     };
 
     expect(
-      resolveAwsScope({ profile: 'local-profile', region: 'us-east-1' }, command)
+      resolveAwsScope(
+        { profile: 'local-profile', region: 'us-east-1' },
+        command
+      )
     ).toEqual({
       profile: 'local-profile',
       region: 'us-east-1'
@@ -109,7 +115,10 @@ describe('cli/helpers', () => {
 
   it('falls back to global aws scope options when local options are absent', () => {
     const command = {
-      optsWithGlobals: () => ({ profile: 'global-profile', region: 'us-west-2' })
+      optsWithGlobals: () => ({
+        profile: 'global-profile',
+        region: 'us-west-2'
+      })
     };
 
     expect(resolveAwsScope({}, command)).toEqual({

@@ -131,10 +131,14 @@ export const resolveAwsScope = (
 
   const profile =
     options.profile ||
-    (typeof globalOptions.profile === 'string' ? globalOptions.profile : undefined);
+    (typeof globalOptions.profile === 'string'
+      ? globalOptions.profile
+      : undefined);
   const region =
     options.region ||
-    (typeof globalOptions.region === 'string' ? globalOptions.region : undefined);
+    (typeof globalOptions.region === 'string'
+      ? globalOptions.region
+      : undefined);
 
   return { profile, region };
 };
