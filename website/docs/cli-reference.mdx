@@ -32,6 +32,9 @@ Currently supported provider: `aws`
 
 Use `env-secrets aws secret <command>` to manage AWS Secrets Manager secrets directly.
 
+`env-secrets aws -s <secret-name>` is the value-injection path.  
+`env-secrets aws secret <command>` is the lifecycle-management path.
+
 ### Commands
 
 - `create` - Create a new secret
@@ -172,6 +175,9 @@ node app.js
 env-secrets aws -s docker-secrets -r us-east-1 -o .env
 docker run --env-file .env my-app:latest
 ```
+
+This is also the supported way to load values into your current shell session.
+`env-secrets aws -s ... -- <command>` only affects the spawned child process.
 
 ### Secret Management
 

@@ -160,6 +160,31 @@ In addition to injecting variables into a process, `env-secrets` can manage AWS 
 `aws secret` subcommands consistently honor `--region`, `--profile`, and `--output`.
 Use these options directly with each subcommand.
 
+### `aws -s` vs `aws secret ...`
+
+- `env-secrets aws -s <secret-name>`: retrieves a secret value and injects it into the environment for a process.
+- `env-secrets aws secret ...`: management commands only (`create`, `update`, `list`, `get`, `delete`).
+
+Example:
+
+```bash
+# inject secret values
+env-secrets aws -s my-app/dev/api -r us-east-1 -- node app.js
+
+# manage secrets
+env-secrets aws secret get -n my-app/dev/api -r us-east-1 --output json
+```
+
+### Load secrets into your current shell
+
+`env-secrets aws -s ... -- <command>` injects variables into the spawned child process only.
+If you want variables in your current shell session, write exports to a file and source it:
+
+```bash
+env-secrets aws -s my-app/dev/api -r us-east-1 -o secrets.env
+source secrets.env
+```
+
 ### Secret Management Examples
 
 1. **Create a secret with inline value:**

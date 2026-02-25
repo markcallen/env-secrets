@@ -111,6 +111,9 @@ For `aws secret` management subcommands (`create`, `update`, `list`, `get`, `del
 
 These options are honored consistently on `aws secret` subcommands.
 
+`aws -s` is for fetching/injecting secret values into a child process.  
+`aws secret ...` is for lifecycle management commands (`create`, `update`, `list`, `get`, `delete`).
+
 #### Examples
 
 1. **Create a secret using AWS CLI:**
@@ -216,6 +219,19 @@ env-secrets aws -s my-secret -r us-east-1 -o secrets.env
 env-secrets aws -s my-secret -r us-east-1 -o secrets.env
 # Error: File secrets.env already exists and will not be overwritten
 ```
+
+10. **Load secrets into your current shell session:**
+
+```bash
+# Write export statements to a file
+env-secrets aws -s my-secret -r us-east-1 -o secrets.env
+
+# Load into current shell
+source secrets.env
+```
+
+Note: `env-secrets aws -s ... -- <command>` injects secrets into the spawned child process only.  
+To affect your current shell, use file output and `source` it.
 
 ## Security Considerations
 
