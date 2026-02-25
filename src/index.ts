@@ -13,10 +13,12 @@ import {
   updateSecret,
   listSecrets,
   getSecretMetadata,
-  deleteSecret
+  deleteSecret,
+  secretExists
 } from './vaults/secretsmanager-admin';
 import {
   asOutputFormat,
+  parseEnvSecretsFile,
   printData,
   parseRecoveryDays,
   resolveAwsScope,
@@ -112,6 +114,7 @@ secretCommand
   .requiredOption('-n, --name <name>', 'secret name')
   .option('-v, --value <value>', 'secret value')
   .option('--value-stdin', 'read secret value from stdin')
+  .option('-f, --file <path>', 'read secret value from local file')
   .option('-d, --description <description>', 'secret description')
   .option('-k, --kms-key-id <kmsKeyId>', 'kms key id')
   .option('-t, --tag <tag...>', 'tag in key=value format')
@@ -127,10 +130,14 @@ secretCommand
         (typeof globalOptions.output === 'string'
           ? globalOptions.output
           : 'table');
-      const value = await resolveSecretValue(options.value, options.valueStdin);
+      const value = await resolveSecretValue(
+        options.value,
+        options.valueStdin,
+        options.file
+      );
       if (!value) {
         throw new Error(
-          'Secret value is required. Provide --value or --value-stdin.'
+          'Secret value is required. Provide --value, --value-stdin, or --file.'
         );
       }
 
@@ -164,6 +171,7 @@ secretCommand
   .requiredOption('-n, --name <name>', 'secret name')
   .option('-v, --value <value>', 'new secret value')
   .option('--value-stdin', 'read secret value from stdin')
+  .option('-f, --file <path>', 'read secret value from local file')
   .option('-d, --description <description>', 'secret description')
   .option('-k, --kms-key-id <kmsKeyId>', 'kms key id')
   .option('-p, --profile <profile>', 'profile to use')
@@ -178,10 +186,14 @@ secretCommand
         (typeof globalOptions.output === 'string'
           ? globalOptions.output
           : 'table');
-      const value = await resolveSecretValue(options.value, options.valueStdin);
+      const value = await resolveSecretValue(
+        options.value,
+        options.valueStdin,
+        options.file
+      );
       if (!value && !options.description && !options.kmsKeyId) {
         throw new Error(
-          'Nothing to update. Provide --value/--value-stdin, --description, or --kms-key-id.'
+          'Nothing to update. Provide --value/--value-stdin/--file, --description, or --kms-key-id.'
         );
       }
 
@@ -202,6 +214,127 @@ secretCommand
           { key: 'versionId', label: 'VersionId' }
         ],
         [result]
+      );
+    } catch (error: unknown) {
+      exitWithError(error);
+    }
+  });
+
+secretCommand
+  .command('upsert')
+  .alias('import')
+  .description('create or update secrets from a local env file')
+  .requiredOption('-f, --file <path>', 'path to env file')
+  .option(
+    '--prefix <prefix>',
+    'optional prefix to prepend to secret names (for example: app/dev)'
+  )
+  .option('-d, --description <description>', 'secret description')
+  .option('-k, --kms-key-id <kmsKeyId>', 'kms key id')
+  .option('-t, --tag <tag...>', 'tag in key=value format (applies on create)')
+  .option('-p, --profile <profile>', 'profile to use')
+  .option('-r, --region <region>', 'region to use')
+  .option('--output <format>', 'output format: json|table')
+  .action(async (options, command) => {
+    try {
+      const { profile, region } = resolveAwsScope(options, command);
+      const globalOptions = command.optsWithGlobals();
+      const output =
+        options.output ??
+        (typeof globalOptions.output === 'string'
+          ? globalOptions.output
+          : 'table');
+      const parsed = await parseEnvSecretsFile(options.file);
+
+      if (parsed.entries.length === 0) {
+        throw new Error(
+          'No env entries found. Include lines like KEY=value or export KEY=value.'
+        );
+      }
+
+      const normalizedPrefix = options.prefix?.replace(/\/+$/, '');
+      const rows: Array<{
+        name: string;
+        status: 'created' | 'updated' | 'failed' | 'skipped';
+        line?: string;
+        message?: string;
+      }> = [];
+      let created = 0;
+      let updated = 0;
+      let failed = 0;
+      const skipped = parsed.skipped.length;
+
+      for (const skip of parsed.skipped) {
+        rows.push({
+          name: normalizedPrefix ? `${normalizedPrefix}/${skip.key}` : skip.key,
+          status: 'skipped',
+          line: String(skip.line),
+          message: skip.reason
+        });
+      }
+
+      for (const entry of parsed.entries) {
+        const name = normalizedPrefix
+          ? `${normalizedPrefix}/${entry.key}`
+          : entry.key;
+
+        try {
+          const exists = await secretExists({ name, profile, region });
+          if (exists) {
+            await updateSecret({
+              name,
+              value: entry.value,
+              description: options.description,
+              kmsKeyId: options.kmsKeyId,
+              profile,
+              region
+            });
+            updated += 1;
+            rows.push({ name, status: 'updated', line: String(entry.line) });
+          } else {
+            await createSecret({
+              name,
+              value: entry.value,
+              description: options.description,
+              kmsKeyId: options.kmsKeyId,
+              tags: options.tag,
+              profile,
+              region
+            });
+            created += 1;
+            rows.push({ name, status: 'created', line: String(entry.line) });
+          }
+        } catch (error: unknown) {
+          failed += 1;
+          rows.push({
+            name,
+            status: 'failed',
+            line: String(entry.line),
+            message: error instanceof Error ? error.message : String(error)
+          });
+        }
+      }
+
+      const summary = { created, updated, skipped, failed };
+      if (output === 'json') {
+        // eslint-disable-next-line no-console
+        console.log(JSON.stringify({ summary, results: rows }, null, 2));
+        return;
+      }
+
+      printData(
+        asOutputFormat(output),
+        [
+          { key: 'name', label: 'Name' },
+          { key: 'status', label: 'Status' },
+          { key: 'line', label: 'Line' },
+          { key: 'message', label: 'Message' }
+        ],
+        rows
+      );
+      // eslint-disable-next-line no-console
+      console.log(
+        `Summary: created=${created}, updated=${updated}, skipped=${skipped}, failed=${failed}`
       );
     } catch (error: unknown) {
       exitWithError(error);

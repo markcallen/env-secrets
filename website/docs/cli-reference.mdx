@@ -39,6 +39,7 @@ Use `env-secrets aws secret <command>` to manage AWS Secrets Manager secrets dir
 
 - `create` - Create a new secret
 - `update` - Update secret value or metadata
+- `upsert` (`import`) - Create or update secrets from an env file
 - `list` - List secrets
 - `get` - Get secret metadata/version info
 - `delete` - Delete a secret
@@ -53,15 +54,21 @@ Use `env-secrets aws secret <command>` to manage AWS Secrets Manager secrets dir
 
 - `create`
   - `-n, --name <name>` (required)
-  - `-v, --value <value>` or `--value-stdin`
+  - `-v, --value <value>` or `--value-stdin` or `-f, --file <path>`
   - `-d, --description <description>`
   - `-k, --kms-key-id <kmsKeyId>`
   - `-t, --tag <key=value...>`
 - `update`
   - `-n, --name <name>` (required)
-  - `-v, --value <value>` or `--value-stdin`
+  - `-v, --value <value>` or `--value-stdin` or `-f, --file <path>`
   - `-d, --description <description>`
   - `-k, --kms-key-id <kmsKeyId>`
+- `upsert` / `import`
+  - `-f, --file <path>` (required)
+  - `--prefix <prefix>`
+  - `-d, --description <description>`
+  - `-k, --kms-key-id <kmsKeyId>`
+  - `-t, --tag <key=value...>` (applies on create)
 - `list`
   - `--prefix <prefix>`
   - `-t, --tag <key=value...>`
@@ -193,6 +200,11 @@ env-secrets aws secret update -n app/dev/api -v '{"API_KEY":"xyz789"}'
 
 # Update from stdin
 echo -n 'rotated-value' | env-secrets aws secret update -n app/dev/raw --value-stdin
+
+# Upsert/import from env file
+env-secrets aws secret upsert --file .env --prefix app/dev --output json
+# alias
+env-secrets aws secret import --file .env --prefix app/dev --output json
 
 # List
 env-secrets aws secret list --prefix app/dev --output table

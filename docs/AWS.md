@@ -153,6 +153,7 @@ In addition to injecting variables into a process, `env-secrets` can manage AWS 
 
 - `env-secrets aws secret create`
 - `env-secrets aws secret update`
+- `env-secrets aws secret upsert` (alias: `import`)
 - `env-secrets aws secret list`
 - `env-secrets aws secret get`
 - `env-secrets aws secret delete`
@@ -163,7 +164,7 @@ Use these options directly with each subcommand.
 ### `aws -s` vs `aws secret ...`
 
 - `env-secrets aws -s <secret-name>`: retrieves a secret value and injects it into the environment for a process.
-- `env-secrets aws secret ...`: management commands only (`create`, `update`, `list`, `get`, `delete`).
+- `env-secrets aws secret ...`: management commands only (`create`, `update`, `upsert/import`, `list`, `get`, `delete`).
 
 Example:
 
@@ -209,7 +210,13 @@ source secrets.env
    env-secrets aws secret update -n my-app/dev/api -v '{"API_KEY":"rotated"}' -r us-east-1
    ```
 
-4. **List secrets by prefix:**
+4. **Upsert from an env file (`export KEY=value` or `KEY=value`):**
+
+   ```bash
+   env-secrets aws secret upsert --file .env --prefix my-app/dev -r us-east-1 --output json
+   ```
+
+5. **List secrets by prefix:**
 
    ```bash
    env-secrets aws secret list --prefix my-app/dev -r us-east-1 --output table
@@ -222,13 +229,13 @@ source secrets.env
    env-secrets aws secret list --prefix my-app/dev -r us-east-1 --output json
    ```
 
-5. **Get metadata and version info (without printing secret value):**
+6. **Get metadata and version info (without printing secret value):**
 
    ```bash
    env-secrets aws secret get -n my-app/dev/api -r us-east-1 --output json
    ```
 
-6. **Delete with explicit confirmation:**
+7. **Delete with explicit confirmation:**
 
    ```bash
    env-secrets aws secret delete -n my-app/dev/raw --recovery-days 7 --yes -r us-east-1
@@ -237,6 +244,8 @@ source secrets.env
 ### Secret Management Safety Notes
 
 - `delete` requires `--yes`.
+- `create`/`update` accept `--value`, `--value-stdin`, or `--file` (use only one).
+- `upsert/import --file` parses `export KEY=value` and `KEY=value`, ignores blank lines/comments, and reports `created`, `updated`, `skipped`, and `failed`.
 - Use `--value-stdin` to avoid shell history leakage for sensitive values.
 - Use either `--recovery-days` or `--force-delete-without-recovery` for delete operations.
 

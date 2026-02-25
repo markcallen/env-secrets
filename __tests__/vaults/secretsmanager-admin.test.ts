@@ -37,6 +37,7 @@ import {
   listSecrets,
   getSecretMetadata,
   deleteSecret,
+  secretExists,
   validateSecretName
 } from '../../src/vaults/secretsmanager-admin';
 
@@ -276,6 +277,26 @@ describe('secretsmanager-admin', () => {
       })
     );
     expect(Object.keys(result)).not.toContain('secretString');
+  });
+
+  it('returns true when secret exists', async () => {
+    mockSecretsManagerSend.mockResolvedValueOnce({
+      Name: 'app/existing'
+    });
+
+    await expect(
+      secretExists({ name: 'app/existing', region: 'us-east-1' })
+    ).resolves.toBe(true);
+  });
+
+  it('returns false when secret does not exist', async () => {
+    mockSecretsManagerSend.mockRejectedValueOnce({
+      name: 'ResourceNotFoundException'
+    });
+
+    await expect(
+      secretExists({ name: 'app/missing', region: 'us-east-1' })
+    ).resolves.toBe(false);
   });
 
   it('deletes secret with recovery options', async () => {

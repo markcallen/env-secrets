@@ -321,6 +321,26 @@ export const getSecretMetadata = async (
   }
 };
 
+export const secretExists = async (
+  options: AwsSecretCommandOptions & { name: string }
+): Promise<boolean> => {
+  validateSecretName(options.name);
+  debug('secretExists called', { name: options.name });
+  const client = await createClient(options);
+
+  try {
+    await client.send(new DescribeSecretCommand({ SecretId: options.name }));
+    return true;
+  } catch (error: unknown) {
+    const awsError = error as AWSLikeError;
+    if (awsError?.name === 'ResourceNotFoundException') {
+      return false;
+    }
+
+    return mapAwsError(error, options.name);
+  }
+};
+
 export const deleteSecret = async (
   options: SecretDeleteOptions
 ): Promise<{ arn?: string; name?: string; deletedDate?: string }> => {
