@@ -485,6 +485,71 @@ describe('End-to-End Tests', () => {
         }>;
         expect(eastRows).toEqual([]);
       });
+
+      test('should upsert secrets from env file', async () => {
+        const prefix = `e2e-upsert-${Date.now()}`;
+        const tempFile = path.join(
+          os.tmpdir(),
+          `env-secrets-upsert-${Date.now()}.env`
+        );
+
+        fs.writeFileSync(
+          tempFile,
+          ['# sample', 'export API_KEY=first', 'DB_URL = postgres://one'].join(
+            '\n'
+          )
+        );
+
+        const firstRun = await cliWithEnv(
+          [
+            'aws',
+            'secret',
+            'upsert',
+            '--file',
+            tempFile,
+            '--prefix',
+            prefix,
+            '--output',
+            'json'
+          ],
+          getLocalStackEnv()
+        );
+        expect(firstRun.code).toBe(0);
+        const firstJson = JSON.parse(firstRun.stdout) as {
+          summary: { created: number; updated: number; skipped: number };
+        };
+        expect(firstJson.summary.created).toBe(2);
+        expect(firstJson.summary.updated).toBe(0);
+
+        fs.writeFileSync(
+          tempFile,
+          ['export API_KEY=second', 'DB_URL=postgres://two'].join('\n')
+        );
+
+        const secondRun = await cliWithEnv(
+          [
+            'aws',
+            'secret',
+            'import',
+            '--file',
+            tempFile,
+            '--prefix',
+            prefix,
+            '--output',
+            'json'
+          ],
+          getLocalStackEnv()
+        );
+        expect(secondRun.code).toBe(0);
+        const secondJson = JSON.parse(secondRun.stdout) as {
+          summary: { created: number; updated: number; skipped: number };
+        };
+        expect(secondJson.summary.created).toBe(0);
+        expect(secondJson.summary.updated).toBe(2);
+        expect(secondJson.summary.skipped).toBe(0);
+
+        cleanupTempFile(tempFile);
+      });
     });
   });
 });

@@ -1,7 +1,11 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 
 import {
   asOutputFormat,
+  parseEnvSecrets,
   parseRecoveryDays,
   printData,
   readStdin,
@@ -73,7 +77,23 @@ describe('cli/helpers', () => {
 
   it('rejects when both --value and --value-stdin are used', async () => {
     await expect(resolveSecretValue('inline', true)).rejects.toThrow(
-      'Use either --value or --value-stdin, not both.'
+      'Use only one secret value source: --value, --value-stdin, or --file.'
+    );
+  });
+
+  it('rejects when --file and --value-stdin are used together', async () => {
+    await expect(
+      resolveSecretValue(undefined, true, './secret.txt')
+    ).rejects.toThrow(
+      'Use only one secret value source: --value, --value-stdin, or --file.'
+    );
+  });
+
+  it('rejects when --value and --file are used together', async () => {
+    await expect(
+      resolveSecretValue('inline', false, './secret.txt')
+    ).rejects.toThrow(
+      'Use only one secret value source: --value, --value-stdin, or --file.'
     );
   });
 
@@ -92,6 +112,58 @@ describe('cli/helpers', () => {
       value: originalStdin,
       configurable: true
     });
+  });
+
+  it('reads secret value from file and strips one trailing newline', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'env-secrets-test-'));
+    const file = join(dir, 'secret.txt');
+    writeFileSync(file, 'file-secret\n');
+
+    await expect(resolveSecretValue(undefined, false, file)).resolves.toBe(
+      'file-secret'
+    );
+
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('parses env secrets from KEY=value and export KEY=value formats', () => {
+    const parsed = parseEnvSecrets(
+      [
+        '# comment',
+        'export API_KEY=secret1',
+        'DATABASE_URL=postgres://db',
+        ''
+      ].join('\n')
+    );
+
+    expect(parsed.entries).toEqual([
+      { key: 'API_KEY', value: 'secret1', line: 2 },
+      { key: 'DATABASE_URL', value: 'postgres://db', line: 3 }
+    ]);
+    expect(parsed.skipped).toEqual([]);
+  });
+
+  it('handles whitespace around equals in env file', () => {
+    const parsed = parseEnvSecrets('  export   NAME =  secret1  ');
+
+    expect(parsed.entries).toEqual([
+      { key: 'NAME', value: 'secret1', line: 1 }
+    ]);
+  });
+
+  it('skips duplicate keys when parsing env file', () => {
+    const parsed = parseEnvSecrets(['A=1', 'A=2'].join('\n'));
+
+    expect(parsed.entries).toEqual([{ key: 'A', value: '1', line: 1 }]);
+    expect(parsed.skipped).toEqual([
+      { key: 'A', line: 2, reason: 'duplicate key' }
+    ]);
+  });
+
+  it('throws clear error for malformed env lines', () => {
+    expect(() => parseEnvSecrets('NOT_A_VALID_LINE')).toThrow(
+      'Malformed env line 1'
+    );
   });
 
   it('prefers explicit aws scope options over global options', () => {
