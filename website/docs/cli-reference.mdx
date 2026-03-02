@@ -32,8 +32,8 @@ Currently supported provider: `aws`
 
 Use `env-secrets aws secret <command>` to manage AWS Secrets Manager secrets directly.
 
-`env-secrets aws -s <secret-name>` is the value-injection path.  
-`env-secrets aws secret <command>` is the lifecycle-management path.
+Use `env-secrets aws -s <secret-name>` together with either `-- <program-to-run>` to inject secret values into a spawned child process, or with `-o <file>` to write exports to a file.  
+`env-secrets aws secret <command>` is the lifecycle-management path and does not inject values by itself.
 
 ### Commands
 

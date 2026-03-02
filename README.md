@@ -111,8 +111,8 @@ For `aws secret` management subcommands (`create`, `update`, `upsert`/`import`, 
 
 These options are honored consistently on `aws secret` subcommands.
 
-`aws -s` is for fetching/injecting secret values into a child process.  
-`aws secret ...` is for lifecycle management commands (`create`, `update`, `upsert`/`import`, `list`, `get`, `delete`).
+`env-secrets aws -s` is for fetching/injecting secret values into a child process.  
+`env-secrets aws secret ...` is for lifecycle management commands (`create`, `update`, `upsert`/`import`, `list`, `get`, `delete`).
 
 #### Examples
 
