@@ -8,7 +8,8 @@ import {
   createTestProfile,
   restoreTestProfile,
   TestSecret,
-  CreatedSecret
+  CreatedSecret,
+  execAwslocalCommand
 } from './utils/test-utils';
 import { debugLog } from './utils/debug-logger';
 import * as fs from 'fs';
@@ -417,6 +418,97 @@ describe('End-to-End Tests', () => {
         expect(deleteResult.code).toBe(0);
       });
 
+      test('should append and remove keys on a JSON secret', async () => {
+        const secretName = `managed-secret-append-remove-${Date.now()}`;
+        const tempFile = path.join(
+          os.tmpdir(),
+          `env-secrets-append-remove-${Date.now()}.env`
+        );
+        fs.writeFileSync(tempFile, 'API_KEY=first');
+
+        const createResult = await cliWithEnv(
+          [
+            'aws',
+            'secret',
+            'upsert',
+            '--file',
+            tempFile,
+            '--name',
+            secretName,
+            '--output',
+            'json'
+          ],
+          getLocalStackEnv()
+        );
+        expect(createResult.code).toBe(0);
+
+        const appendResult = await cliWithEnv(
+          [
+            'aws',
+            'secret',
+            'append',
+            '-n',
+            secretName,
+            '--key',
+            'JIRA_EMAIL_TOKEN',
+            '-v',
+            'blah',
+            '--output',
+            'json'
+          ],
+          getLocalStackEnv()
+        );
+        expect(appendResult.code).toBe(0);
+
+        const afterAppend = await execAwslocalCommand(
+          `awslocal secretsmanager get-secret-value --secret-id "${secretName}" --region us-east-1 --query SecretString --output text`,
+          getLocalStackEnv()
+        );
+        expect(JSON.parse(afterAppend.stdout.trim())).toEqual({
+          API_KEY: 'first',
+          JIRA_EMAIL_TOKEN: 'blah'
+        });
+
+        const removeResult = await cliWithEnv(
+          [
+            'aws',
+            'secret',
+            'remove',
+            '-n',
+            secretName,
+            '--key',
+            'API_KEY',
+            '--output',
+            'json'
+          ],
+          getLocalStackEnv()
+        );
+        expect(removeResult.code).toBe(0);
+
+        const afterRemove = await execAwslocalCommand(
+          `awslocal secretsmanager get-secret-value --secret-id "${secretName}" --region us-east-1 --query SecretString --output text`,
+          getLocalStackEnv()
+        );
+        expect(JSON.parse(afterRemove.stdout.trim())).toEqual({
+          JIRA_EMAIL_TOKEN: 'blah'
+        });
+
+        const deleteResult = await cliWithEnv(
+          [
+            'aws',
+            'secret',
+            'delete',
+            '-n',
+            secretName,
+            '--force-delete-without-recovery',
+            '--yes'
+          ],
+          getLocalStackEnv()
+        );
+        expect(deleteResult.code).toBe(0);
+        cleanupTempFile(tempFile);
+      });
+
       test('should require confirmation for delete', async () => {
         const secret = await createTestSecret({
           name: `managed-secret-confirm-${Date.now()}`,
@@ -487,7 +579,7 @@ describe('End-to-End Tests', () => {
       });
 
       test('should upsert secrets from env file', async () => {
-        const prefix = `e2e-upsert-${Date.now()}`;
+        const secretName = `e2e-upsert-${Date.now()}`;
         const tempFile = path.join(
           os.tmpdir(),
           `env-secrets-upsert-${Date.now()}.env`
@@ -507,8 +599,8 @@ describe('End-to-End Tests', () => {
             'upsert',
             '--file',
             tempFile,
-            '--prefix',
-            prefix,
+            '--name',
+            secretName,
             '--output',
             'json'
           ],
@@ -518,8 +610,17 @@ describe('End-to-End Tests', () => {
         const firstJson = JSON.parse(firstRun.stdout) as {
           summary: { created: number; updated: number; skipped: number };
         };
-        expect(firstJson.summary.created).toBe(2);
+        expect(firstJson.summary.created).toBe(1);
         expect(firstJson.summary.updated).toBe(0);
+
+        const firstSecret = await execAwslocalCommand(
+          `awslocal secretsmanager get-secret-value --secret-id "${secretName}" --region us-east-1 --query SecretString --output text`,
+          getLocalStackEnv()
+        );
+        expect(JSON.parse(firstSecret.stdout.trim())).toEqual({
+          API_KEY: 'first',
+          DB_URL: 'postgres://one'
+        });
 
         fs.writeFileSync(
           tempFile,
@@ -533,8 +634,8 @@ describe('End-to-End Tests', () => {
             'import',
             '--file',
             tempFile,
-            '--prefix',
-            prefix,
+            '--name',
+            secretName,
             '--output',
             'json'
           ],
@@ -545,9 +646,31 @@ describe('End-to-End Tests', () => {
           summary: { created: number; updated: number; skipped: number };
         };
         expect(secondJson.summary.created).toBe(0);
-        expect(secondJson.summary.updated).toBe(2);
+        expect(secondJson.summary.updated).toBe(1);
         expect(secondJson.summary.skipped).toBe(0);
 
+        const secondSecret = await execAwslocalCommand(
+          `awslocal secretsmanager get-secret-value --secret-id "${secretName}" --region us-east-1 --query SecretString --output text`,
+          getLocalStackEnv()
+        );
+        expect(JSON.parse(secondSecret.stdout.trim())).toEqual({
+          API_KEY: 'second',
+          DB_URL: 'postgres://two'
+        });
+
+        const deleteResult = await cliWithEnv(
+          [
+            'aws',
+            'secret',
+            'delete',
+            '-n',
+            secretName,
+            '--force-delete-without-recovery',
+            '--yes'
+          ],
+          getLocalStackEnv()
+        );
+        expect(deleteResult.code).toBe(0);
         cleanupTempFile(tempFile);
       });
     });

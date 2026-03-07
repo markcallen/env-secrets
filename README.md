@@ -103,7 +103,7 @@ env-secrets aws -s my-app-secrets -r us-east-1 -- node app.js
 - `-o, --output <file>` (optional): Output secrets to a file instead of injecting into environment variables. File will be created with 0400 permissions and will not overwrite existing files
 - `-- <program-to-run>`: The program to run with the injected environment variables (only used when `-o` is not specified)
 
-For `aws secret` management subcommands (`create`, `update`, `upsert`/`import`, `list`, `get`, `delete`), use:
+For `aws secret` management subcommands (`create`, `update`, `append`, `remove`, `upsert`/`import`, `list`, `get`, `delete`), use:
 
 - `-r, --region <region>` to target a specific region
 - `-p, --profile <profile>` to select credentials profile
@@ -112,7 +112,7 @@ For `aws secret` management subcommands (`create`, `update`, `upsert`/`import`, 
 These options are honored consistently on `aws secret` subcommands.
 
 `env-secrets aws -s` is for fetching/injecting secret values into a child process.  
-`env-secrets aws secret ...` is for lifecycle management commands (`create`, `update`, `upsert`/`import`, `list`, `get`, `delete`).
+`env-secrets aws secret ...` is for lifecycle management commands (`create`, `update`, `append`, `remove`, `upsert`/`import`, `list`, `get`, `delete`).
 
 #### Examples
 
@@ -239,7 +239,21 @@ To affect your current shell, use file output and `source` it.
 # Supported line formats:
 # export NAME=secret1
 # NAME=secret1
-env-secrets aws secret upsert --file .env --prefix app/dev --output json
+env-secrets aws secret upsert --file .env --name app/dev --output json
+
+# Creates/updates a single secret named app/dev
+# with SecretString like:
+# {"NAME":"secret1"}
+```
+
+12. **Append/remove keys on an existing JSON secret:**
+
+```bash
+# Add or overwrite one key
+env-secrets aws secret append -n app/dev --key JIRA_EMAIL_TOKEN -v blah --output json
+
+# Remove one or more keys
+env-secrets aws secret remove -n app/dev --key API_KEY --key OLD_TOKEN --output json
 ```
 
 ## Security Considerations

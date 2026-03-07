@@ -153,6 +153,8 @@ In addition to injecting variables into a process, `env-secrets` can manage AWS 
 
 - `env-secrets aws secret create`
 - `env-secrets aws secret update`
+- `env-secrets aws secret append`
+- `env-secrets aws secret remove`
 - `env-secrets aws secret upsert` (alias: `import`)
 - `env-secrets aws secret list`
 - `env-secrets aws secret get`
@@ -163,8 +165,8 @@ Use these options directly with each subcommand.
 
 ### `aws -s` vs `aws secret ...`
 
-- `env-secrets aws -s <secret-name>`: retrieves a secret value and injects it into the environment for a process.
-- `env-secrets aws secret ...`: management commands only (`create`, `update`, `upsert/import`, `list`, `get`, `delete`).
+- `env-secrets aws -s <secret-name> -- <command>`: retrieves a secret value and injects it into the environment for the spawned process (or use `-o <file>` to write exports to a file).
+- `env-secrets aws secret ...`: management commands only (`create`, `update`, `append`, `remove`, `upsert/import`, `list`, `get`, `delete`).
 
 Example:
 
@@ -210,13 +212,28 @@ source secrets.env
    env-secrets aws secret update -n my-app/dev/api -v '{"API_KEY":"rotated"}' -r us-east-1
    ```
 
-4. **Upsert from an env file (`export KEY=value` or `KEY=value`):**
+4. **Upsert from an env file into one JSON secret (`export KEY=value` or `KEY=value`):**
 
    ```bash
-   env-secrets aws secret upsert --file .env --prefix my-app/dev -r us-east-1 --output json
+   env-secrets aws secret upsert --file .env --name my-app/dev -r us-east-1 --output json
+   # alias:
+   env-secrets aws secret import --file .env --name my-app/dev -r us-east-1 --output json
    ```
 
-5. **List secrets by prefix:**
+   This creates/updates one secret named `my-app/dev` with a JSON payload like:
+
+   ```json
+   { "API_KEY": "abc123", "DATABASE_URL": "postgres://..." }
+   ```
+
+5. **Append/remove keys in an existing JSON secret:**
+
+   ```bash
+   env-secrets aws secret append -n my-app/dev --key JIRA_EMAIL_TOKEN -v blah -r us-east-1
+   env-secrets aws secret remove -n my-app/dev --key OLD_TOKEN -r us-east-1
+   ```
+
+6. **List secrets by prefix:**
 
    ```bash
    env-secrets aws secret list --prefix my-app/dev -r us-east-1 --output table
@@ -229,13 +246,13 @@ source secrets.env
    env-secrets aws secret list --prefix my-app/dev -r us-east-1 --output json
    ```
 
-6. **Get metadata and version info (without printing secret value):**
+7. **Get metadata and version info (without printing secret value):**
 
    ```bash
    env-secrets aws secret get -n my-app/dev/api -r us-east-1 --output json
    ```
 
-7. **Delete with explicit confirmation:**
+8. **Delete with explicit confirmation:**
 
    ```bash
    env-secrets aws secret delete -n my-app/dev/raw --recovery-days 7 --yes -r us-east-1
@@ -245,7 +262,8 @@ source secrets.env
 
 - `delete` requires `--yes`.
 - `create`/`update` accept `--value`, `--value-stdin`, or `--file` (use only one).
-- `upsert/import --file` parses `export KEY=value` and `KEY=value`, ignores blank lines/comments, and reports `created`, `updated`, `skipped`, and `failed`.
+- `append` and `remove` require the secret value to be a JSON object.
+- `upsert/import --file --name` parses `export KEY=value` and `KEY=value`, stores them as one JSON secret object, ignores blank lines/comments, and reports `created`, `updated`, `skipped`, and `failed`.
 - Use `--value-stdin` to avoid shell history leakage for sensitive values.
 - Use either `--recovery-days` or `--force-delete-without-recovery` for delete operations.
 

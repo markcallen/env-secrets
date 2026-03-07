@@ -14,7 +14,8 @@ import {
   listSecrets,
   getSecretMetadata,
   deleteSecret,
-  secretExists
+  secretExists,
+  getSecretString
 } from './vaults/secretsmanager-admin';
 import {
   asOutputFormat,
@@ -34,6 +35,28 @@ const exitWithError = (error: unknown) => {
   // eslint-disable-next-line no-console
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
+};
+
+const parseSecretJsonObject = (
+  secretName: string,
+  value: string
+): Record<string, unknown> => {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new Error(
+      `Secret "${secretName}" is not valid JSON. append/remove requires a JSON object secret.`
+    );
+  }
+
+  if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
+    throw new Error(
+      `Secret "${secretName}" must be a JSON object. append/remove does not support arrays or scalar values.`
+    );
+  }
+
+  return parsed as Record<string, unknown>;
 };
 
 // main program
@@ -223,12 +246,9 @@ secretCommand
 secretCommand
   .command('upsert')
   .alias('import')
-  .description('create or update secrets from a local env file')
+  .description('create or update a secret from a local env file')
   .requiredOption('-f, --file <path>', 'path to env file')
-  .option(
-    '--prefix <prefix>',
-    'optional prefix to prepend to secret names (for example: app/dev)'
-  )
+  .requiredOption('-n, --name <name>', 'secret name')
   .option('-d, --description <description>', 'secret description')
   .option('-k, --kms-key-id <kmsKeyId>', 'kms key id')
   .option('-t, --tag <tag...>', 'tag in key=value format (applies on create)')
@@ -252,7 +272,10 @@ secretCommand
         );
       }
 
-      const normalizedPrefix = options.prefix?.replace(/\/+$/, '');
+      const payload = Object.fromEntries(
+        parsed.entries.map((entry) => [entry.key, entry.value])
+      );
+      const value = JSON.stringify(payload);
       const rows: Array<{
         name: string;
         status: 'created' | 'updated' | 'failed' | 'skipped';
@@ -266,53 +289,58 @@ secretCommand
 
       for (const skip of parsed.skipped) {
         rows.push({
-          name: normalizedPrefix ? `${normalizedPrefix}/${skip.key}` : skip.key,
+          name: options.name,
           status: 'skipped',
           line: String(skip.line),
-          message: skip.reason
+          message: `${skip.reason}: ${skip.key}`
         });
       }
 
-      for (const entry of parsed.entries) {
-        const name = normalizedPrefix
-          ? `${normalizedPrefix}/${entry.key}`
-          : entry.key;
-
-        try {
-          const exists = await secretExists({ name, profile, region });
-          if (exists) {
-            await updateSecret({
-              name,
-              value: entry.value,
-              description: options.description,
-              kmsKeyId: options.kmsKeyId,
-              profile,
-              region
-            });
-            updated += 1;
-            rows.push({ name, status: 'updated', line: String(entry.line) });
-          } else {
-            await createSecret({
-              name,
-              value: entry.value,
-              description: options.description,
-              kmsKeyId: options.kmsKeyId,
-              tags: options.tag,
-              profile,
-              region
-            });
-            created += 1;
-            rows.push({ name, status: 'created', line: String(entry.line) });
-          }
-        } catch (error: unknown) {
-          failed += 1;
+      try {
+        const exists = await secretExists({
+          name: options.name,
+          profile,
+          region
+        });
+        if (exists) {
+          await updateSecret({
+            name: options.name,
+            value,
+            description: options.description,
+            kmsKeyId: options.kmsKeyId,
+            profile,
+            region
+          });
+          updated += 1;
           rows.push({
-            name,
-            status: 'failed',
-            line: String(entry.line),
-            message: error instanceof Error ? error.message : String(error)
+            name: options.name,
+            status: 'updated',
+            message: `imported ${parsed.entries.length} keys`
+          });
+        } else {
+          await createSecret({
+            name: options.name,
+            value,
+            description: options.description,
+            kmsKeyId: options.kmsKeyId,
+            tags: options.tag,
+            profile,
+            region
+          });
+          created += 1;
+          rows.push({
+            name: options.name,
+            status: 'created',
+            message: `imported ${parsed.entries.length} keys`
           });
         }
+      } catch (error: unknown) {
+        failed += 1;
+        rows.push({
+          name: options.name,
+          status: 'failed',
+          message: error instanceof Error ? error.message : String(error)
+        });
       }
 
       const summary = { created, updated, skipped, failed };
@@ -335,6 +363,145 @@ secretCommand
       // eslint-disable-next-line no-console
       console.log(
         `Summary: created=${created}, updated=${updated}, skipped=${skipped}, failed=${failed}`
+      );
+    } catch (error: unknown) {
+      exitWithError(error);
+    }
+  });
+
+secretCommand
+  .command('append')
+  .description('append or overwrite one key in an existing JSON secret')
+  .requiredOption('-n, --name <name>', 'secret name')
+  .requiredOption('--key <key>', 'key to append/update')
+  .option('-v, --value <value>', 'value for the key')
+  .option('--value-stdin', 'read value from stdin')
+  .option('-f, --file <path>', 'read value from local file')
+  .option('-p, --profile <profile>', 'profile to use')
+  .option('-r, --region <region>', 'region to use')
+  .option('--output <format>', 'output format: json|table')
+  .action(async (options, command) => {
+    try {
+      const { profile, region } = resolveAwsScope(options, command);
+      const globalOptions = command.optsWithGlobals();
+      const output =
+        options.output ??
+        (typeof globalOptions.output === 'string'
+          ? globalOptions.output
+          : 'table');
+      const value = await resolveSecretValue(
+        options.value,
+        options.valueStdin,
+        options.file
+      );
+      if (!value) {
+        throw new Error(
+          'Append value is required. Provide --value, --value-stdin, or --file.'
+        );
+      }
+
+      const current = await getSecretString({
+        name: options.name,
+        profile,
+        region
+      });
+      const payload = parseSecretJsonObject(options.name, current);
+      payload[options.key] = value;
+
+      const result = await updateSecret({
+        name: options.name,
+        value: JSON.stringify(payload),
+        profile,
+        region
+      });
+
+      printData(
+        asOutputFormat(output),
+        [
+          { key: 'name', label: 'Name' },
+          { key: 'arn', label: 'ARN' },
+          { key: 'versionId', label: 'VersionId' },
+          { key: 'key', label: 'Key' },
+          { key: 'action', label: 'Action' }
+        ],
+        [
+          {
+            ...result,
+            key: options.key,
+            action: 'appended'
+          }
+        ]
+      );
+    } catch (error: unknown) {
+      exitWithError(error);
+    }
+  });
+
+secretCommand
+  .command('remove')
+  .description('remove one or more keys from an existing JSON secret')
+  .requiredOption('-n, --name <name>', 'secret name')
+  .requiredOption('--key <key...>', 'one or more keys to remove')
+  .option('-p, --profile <profile>', 'profile to use')
+  .option('-r, --region <region>', 'region to use')
+  .option('--output <format>', 'output format: json|table')
+  .action(async (options, command) => {
+    try {
+      const { profile, region } = resolveAwsScope(options, command);
+      const globalOptions = command.optsWithGlobals();
+      const output =
+        options.output ??
+        (typeof globalOptions.output === 'string'
+          ? globalOptions.output
+          : 'table');
+      const keys = options.key as string[];
+      const current = await getSecretString({
+        name: options.name,
+        profile,
+        region
+      });
+      const payload = parseSecretJsonObject(options.name, current);
+
+      const removed: string[] = [];
+      const missing: string[] = [];
+      for (const key of keys) {
+        if (Object.prototype.hasOwnProperty.call(payload, key)) {
+          delete payload[key];
+          removed.push(key);
+        } else {
+          missing.push(key);
+        }
+      }
+
+      if (removed.length === 0) {
+        throw new Error(
+          `None of the requested keys exist in secret "${options.name}".`
+        );
+      }
+
+      const result = await updateSecret({
+        name: options.name,
+        value: JSON.stringify(payload),
+        profile,
+        region
+      });
+
+      printData(
+        asOutputFormat(output),
+        [
+          { key: 'name', label: 'Name' },
+          { key: 'arn', label: 'ARN' },
+          { key: 'versionId', label: 'VersionId' },
+          { key: 'removed', label: 'RemovedKeys' },
+          { key: 'missing', label: 'MissingKeys' }
+        ],
+        [
+          {
+            ...result,
+            removed: removed.join(','),
+            missing: missing.join(',')
+          }
+        ]
       );
     } catch (error: unknown) {
       exitWithError(error);

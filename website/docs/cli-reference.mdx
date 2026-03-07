@@ -39,7 +39,9 @@ Use `env-secrets aws -s <secret-name>` together with either `-- <program-to-run>
 
 - `create` - Create a new secret
 - `update` - Update secret value or metadata
-- `upsert` (`import`) - Create or update secrets from an env file
+- `append` - Add or overwrite one key in an existing JSON secret
+- `remove` - Remove one or more keys from an existing JSON secret
+- `upsert` (`import`) - Create or update one JSON secret from an env file
 - `list` - List secrets
 - `get` - Get secret metadata/version info
 - `delete` - Delete a secret
@@ -65,10 +67,17 @@ Use `env-secrets aws -s <secret-name>` together with either `-- <program-to-run>
   - `-k, --kms-key-id <kmsKeyId>`
 - `upsert` / `import`
   - `-f, --file <path>` (required)
-  - `--prefix <prefix>`
+  - `-n, --name <name>` (required)
   - `-d, --description <description>`
   - `-k, --kms-key-id <kmsKeyId>`
   - `-t, --tag <key=value...>` (applies on create)
+- `append`
+  - `-n, --name <name>` (required)
+  - `--key <key>` (required)
+  - `-v, --value <value>` or `--value-stdin` or `-f, --file <path>`
+- `remove`
+  - `-n, --name <name>` (required)
+  - `--key <key...>` (required, repeatable)
 - `list`
   - `--prefix <prefix>`
   - `-t, --tag <key=value...>`
@@ -202,9 +211,16 @@ env-secrets aws secret update -n app/dev/api -v '{"API_KEY":"xyz789"}'
 echo -n 'rotated-value' | env-secrets aws secret update -n app/dev/raw --value-stdin
 
 # Upsert/import from env file
-env-secrets aws secret upsert --file .env --prefix app/dev --output json
+env-secrets aws secret upsert --file .env --name app/dev --output json
 # alias
-env-secrets aws secret import --file .env --prefix app/dev --output json
+env-secrets aws secret import --file .env --name app/dev --output json
+
+# Result: one secret named app/dev with SecretString like:
+# {"API_KEY":"abc123","DATABASE_URL":"postgres://..."}
+
+# Append/remove keys (JSON secret only)
+env-secrets aws secret append -n app/dev --key JIRA_EMAIL_TOKEN -v blah --output json
+env-secrets aws secret remove -n app/dev --key OLD_TOKEN --output json
 
 # List
 env-secrets aws secret list --prefix app/dev --output table
