@@ -2,6 +2,7 @@ import {
   CreateSecretCommand,
   DeleteSecretCommand,
   DescribeSecretCommand,
+  GetSecretValueCommand,
   ListSecretsCommand,
   SecretsManagerClient,
   Tag,
@@ -316,6 +317,50 @@ export const getSecretMetadata = async (
       versionIdsToStages: result.VersionIdsToStages,
       tags: tagsToRecord(result.Tags)
     };
+  } catch (error: unknown) {
+    return mapAwsError(error, options.name);
+  }
+};
+
+export const secretExists = async (
+  options: AwsSecretCommandOptions & { name: string }
+): Promise<boolean> => {
+  validateSecretName(options.name);
+  debug('secretExists called', { name: options.name });
+  const client = await createClient(options);
+
+  try {
+    await client.send(new DescribeSecretCommand({ SecretId: options.name }));
+    return true;
+  } catch (error: unknown) {
+    const awsError = error as AWSLikeError;
+    if (awsError?.name === 'ResourceNotFoundException') {
+      return false;
+    }
+
+    return mapAwsError(error, options.name);
+  }
+};
+
+export const getSecretString = async (
+  options: AwsSecretCommandOptions & { name: string }
+): Promise<string> => {
+  validateSecretName(options.name);
+  debug('getSecretString called', { name: options.name });
+  const client = await createClient(options);
+
+  try {
+    const result = await client.send(
+      new GetSecretValueCommand({ SecretId: options.name })
+    );
+
+    if (typeof result.SecretString !== 'string') {
+      throw new Error(
+        `Secret "${options.name}" is not stored as a string value and cannot be edited with append/remove.`
+      );
+    }
+
+    return result.SecretString;
   } catch (error: unknown) {
     return mapAwsError(error, options.name);
   }

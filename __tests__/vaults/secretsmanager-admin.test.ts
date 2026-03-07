@@ -12,6 +12,7 @@ jest.mock('@aws-sdk/client-secrets-manager', () => {
     })),
     CreateSecretCommand: jest.fn().mockImplementation((input) => ({ input })),
     UpdateSecretCommand: jest.fn().mockImplementation((input) => ({ input })),
+    GetSecretValueCommand: jest.fn().mockImplementation((input) => ({ input })),
     ListSecretsCommand: jest.fn().mockImplementation((input) => ({ input })),
     DescribeSecretCommand: jest.fn().mockImplementation((input) => ({ input })),
     DeleteSecretCommand: jest.fn().mockImplementation((input) => ({ input }))
@@ -37,6 +38,8 @@ import {
   listSecrets,
   getSecretMetadata,
   deleteSecret,
+  secretExists,
+  getSecretString,
   validateSecretName
 } from '../../src/vaults/secretsmanager-admin';
 
@@ -276,6 +279,46 @@ describe('secretsmanager-admin', () => {
       })
     );
     expect(Object.keys(result)).not.toContain('secretString');
+  });
+
+  it('returns true when secret exists', async () => {
+    mockSecretsManagerSend.mockResolvedValueOnce({
+      Name: 'app/existing'
+    });
+
+    await expect(
+      secretExists({ name: 'app/existing', region: 'us-east-1' })
+    ).resolves.toBe(true);
+  });
+
+  it('returns false when secret does not exist', async () => {
+    mockSecretsManagerSend.mockRejectedValueOnce({
+      name: 'ResourceNotFoundException'
+    });
+
+    await expect(
+      secretExists({ name: 'app/missing', region: 'us-east-1' })
+    ).resolves.toBe(false);
+  });
+
+  it('gets current secret string value', async () => {
+    mockSecretsManagerSend.mockResolvedValueOnce({
+      SecretString: '{"API_KEY":"abc"}'
+    });
+
+    await expect(
+      getSecretString({ name: 'app/existing', region: 'us-east-1' })
+    ).resolves.toBe('{"API_KEY":"abc"}');
+  });
+
+  it('rejects binary/non-string secrets for append/remove workflows', async () => {
+    mockSecretsManagerSend.mockResolvedValueOnce({
+      SecretBinary: new Uint8Array([1, 2, 3])
+    });
+
+    await expect(
+      getSecretString({ name: 'app/existing', region: 'us-east-1' })
+    ).rejects.toThrow('cannot be edited with append/remove');
   });
 
   it('deletes secret with recovery options', async () => {

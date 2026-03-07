@@ -133,6 +133,9 @@ yarn test:unit:coverage # Run tests with coverage
 4. Ensure all CI checks pass
 5. Submit a pull request with a clear description
 6. Always request a GitHub Copilot review on every new pull request
+7. After requesting Copilot review, wait 5 minutes and check for review comments
+8. If no Copilot review is present yet, wait another 5 minutes and check again
+9. Create a plan to address Copilot feedback, but evaluate each suggestion critically and do not accept recommendations blindly
 
 ## Development Environment
 
