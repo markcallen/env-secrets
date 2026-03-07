@@ -14,7 +14,6 @@ import {
   listSecrets,
   getSecretMetadata,
   deleteSecret,
-  secretExists,
   getSecretString
 } from './vaults/secretsmanager-admin';
 import {
@@ -297,27 +296,7 @@ secretCommand
       }
 
       try {
-        const exists = await secretExists({
-          name: options.name,
-          profile,
-          region
-        });
-        if (exists) {
-          await updateSecret({
-            name: options.name,
-            value,
-            description: options.description,
-            kmsKeyId: options.kmsKeyId,
-            profile,
-            region
-          });
-          updated += 1;
-          rows.push({
-            name: options.name,
-            status: 'updated',
-            message: `imported ${parsed.entries.length} keys`
-          });
-        } else {
+        try {
           await createSecret({
             name: options.name,
             value,
@@ -331,6 +310,29 @@ secretCommand
           rows.push({
             name: options.name,
             status: 'created',
+            message: `imported ${parsed.entries.length} keys`
+          });
+        } catch (createError: unknown) {
+          const message =
+            createError instanceof Error
+              ? createError.message
+              : String(createError);
+          if (!/already exists/i.test(message)) {
+            throw createError;
+          }
+
+          await updateSecret({
+            name: options.name,
+            value,
+            description: options.description,
+            kmsKeyId: options.kmsKeyId,
+            profile,
+            region
+          });
+          updated += 1;
+          rows.push({
+            name: options.name,
+            status: 'updated',
             message: `imported ${parsed.entries.length} keys`
           });
         }
@@ -347,6 +349,9 @@ secretCommand
       if (output === 'json') {
         // eslint-disable-next-line no-console
         console.log(JSON.stringify({ summary, results: rows }, null, 2));
+        if (failed > 0) {
+          process.exitCode = 1;
+        }
         return;
       }
 
@@ -364,6 +369,9 @@ secretCommand
       console.log(
         `Summary: created=${created}, updated=${updated}, skipped=${skipped}, failed=${failed}`
       );
+      if (failed > 0) {
+        process.exitCode = 1;
+      }
     } catch (error: unknown) {
       exitWithError(error);
     }

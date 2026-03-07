@@ -120,9 +120,9 @@ export const resolveSecretValue = async (
   valueFile?: string
 ): Promise<string | undefined> => {
   const providedSources = [
-    Boolean(value),
-    Boolean(valueStdin),
-    Boolean(valueFile)
+    value !== undefined,
+    valueStdin === true,
+    valueFile !== undefined
   ].filter(Boolean).length;
   if (providedSources > 1) {
     throw new Error(
@@ -163,7 +163,7 @@ const parseEnvLine = (
 
   if (separatorIndex <= 0) {
     throw new Error(
-      `Malformed env line ${lineNumber}: "${line}". Expected KEY=value or export KEY=value.`
+      `Malformed env line ${lineNumber}. Expected KEY=value or export KEY=value.`
     );
   }
 
@@ -172,7 +172,7 @@ const parseEnvLine = (
 
   if (!key) {
     throw new Error(
-      `Malformed env line ${lineNumber}: "${line}". Expected KEY=value or export KEY=value.`
+      `Malformed env line ${lineNumber}. Expected KEY=value or export KEY=value.`
     );
   }
 

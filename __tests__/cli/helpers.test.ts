@@ -97,6 +97,12 @@ describe('cli/helpers', () => {
     );
   });
 
+  it('treats explicit empty --value as provided for mutual exclusion', async () => {
+    await expect(resolveSecretValue('', false, './secret.txt')).rejects.toThrow(
+      'Use only one secret value source: --value, --value-stdin, or --file.'
+    );
+  });
+
   it('rejects stdin mode when no stdin is provided', async () => {
     const originalStdin = process.stdin;
     Object.defineProperty(process, 'stdin', {
@@ -163,6 +169,16 @@ describe('cli/helpers', () => {
   it('throws clear error for malformed env lines', () => {
     expect(() => parseEnvSecrets('NOT_A_VALID_LINE')).toThrow(
       'Malformed env line 1'
+    );
+    expect(() => parseEnvSecrets('BAD=secret')).not.toThrow();
+  });
+
+  it('does not include raw line content in malformed env errors', () => {
+    expect(() => parseEnvSecrets('export SECRET_ONLY')).toThrow(
+      'Expected KEY=value or export KEY=value.'
+    );
+    expect(() => parseEnvSecrets('export SECRET_ONLY')).not.toThrow(
+      /SECRET_ONLY/
     );
   });
 
