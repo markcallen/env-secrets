@@ -200,6 +200,12 @@ source secrets.env
      --output json
    ```
 
+   `create` always writes a JSON object:
+
+   - object JSON input is preserved (`{"API_KEY":"abc123"}`)
+   - dotenv-style input is converted (`KEY=value` -> `{"KEY":"value"}`)
+   - non-object/scalar input is wrapped (`super-secret-value` -> `{"value":"super-secret-value"}`)
+
 2. **Create from stdin (recommended for sensitive values):**
 
    ```bash
@@ -262,6 +268,7 @@ source secrets.env
 
 - `delete` requires `--yes`.
 - `create`/`update` accept `--value`, `--value-stdin`, or `--file` (use only one).
+- `create` always stores `SecretString` as a JSON object.
 - `append` and `remove` require the secret value to be a JSON object.
 - `upsert/import --file --name` parses `export KEY=value` and `KEY=value`, stores them as one JSON secret object, ignores blank lines/comments, and reports `created`, `updated`, `skipped`, and `failed`.
 - Use `--value-stdin` to avoid shell history leakage for sensitive values.

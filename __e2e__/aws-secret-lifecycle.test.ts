@@ -5,7 +5,8 @@ import * as path from 'path';
 import {
   cliWithEnv,
   cliWithEnvAndStdin,
-  cleanupTempFile
+  cleanupTempFile,
+  execAwslocalCommand
 } from './utils/test-utils';
 import { registerAwsE2eContext } from './utils/aws-e2e-context';
 
@@ -37,6 +38,14 @@ describe('AWS Secret Subcommand Lifecycle Args', () => {
     expect(getResult.code).toBe(0);
     expect(getResult.stdout).toContain(secretName);
     expect(getResult.stdout).not.toContain('initial-value');
+
+    const createdSecret = await execAwslocalCommand(
+      `awslocal secretsmanager get-secret-value --secret-id "${secretName}" --region us-east-1 --query SecretString --output text`,
+      getLocalStackEnv()
+    );
+    expect(JSON.parse(createdSecret.stdout.trim())).toEqual({
+      value: 'initial-value'
+    });
 
     const deleteResult = await cliWithEnv(
       [
@@ -84,6 +93,39 @@ describe('AWS Secret Subcommand Lifecycle Args', () => {
     expect(deleteResult.code).toBe(0);
   });
 
+  test('should create a json secret object from stdin', async () => {
+    const secretName = `managed-secret-create-stdin-${Date.now()}`;
+
+    const createResult = await cliWithEnvAndStdin(
+      ['aws', 'secret', 'create', '-n', secretName, '--value-stdin'],
+      getLocalStackEnv(),
+      'stdin-create-value'
+    );
+    expect(createResult.code).toBe(0);
+
+    const createdSecret = await execAwslocalCommand(
+      `awslocal secretsmanager get-secret-value --secret-id "${secretName}" --region us-east-1 --query SecretString --output text`,
+      getLocalStackEnv()
+    );
+    expect(JSON.parse(createdSecret.stdout.trim())).toEqual({
+      value: 'stdin-create-value'
+    });
+
+    const deleteResult = await cliWithEnv(
+      [
+        'aws',
+        'secret',
+        'delete',
+        '-n',
+        secretName,
+        '--force-delete-without-recovery',
+        '--yes'
+      ],
+      getLocalStackEnv()
+    );
+    expect(deleteResult.code).toBe(0);
+  });
+
   test('should create from a single-line env file and retrieve via aws -s', async () => {
     const secretName = `managed-secret-create-single-file-${Date.now()}`;
     const tempFile = path.join(
@@ -118,6 +160,14 @@ describe('AWS Secret Subcommand Lifecycle Args', () => {
       string
     >;
     expect(envVars.GITHUB_PAT).toBe('github_pat_single_line');
+
+    const createdSecret = await execAwslocalCommand(
+      `awslocal secretsmanager get-secret-value --secret-id "${secretName}" --region us-east-1 --query SecretString --output text`,
+      getLocalStackEnv()
+    );
+    expect(JSON.parse(createdSecret.stdout.trim())).toEqual({
+      GITHUB_PAT: 'github_pat_single_line'
+    });
 
     const deleteResult = await cliWithEnv(
       [
@@ -175,6 +225,15 @@ describe('AWS Secret Subcommand Lifecycle Args', () => {
     >;
     expect(envVars.GITHUB_PAT).toBe('github_pat_multi_line');
     expect(envVars.API_URL).toBe('https://example.com');
+
+    const createdSecret = await execAwslocalCommand(
+      `awslocal secretsmanager get-secret-value --secret-id "${secretName}" --region us-east-1 --query SecretString --output text`,
+      getLocalStackEnv()
+    );
+    expect(JSON.parse(createdSecret.stdout.trim())).toEqual({
+      GITHUB_PAT: 'github_pat_multi_line',
+      API_URL: 'https://example.com'
+    });
 
     const deleteResult = await cliWithEnv(
       [
