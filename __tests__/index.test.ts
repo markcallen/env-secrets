@@ -30,9 +30,11 @@ const mockWriteFileSync = writeFileSync as jest.MockedFunction<
 >;
 const mockExistsSync = existsSync as jest.MockedFunction<typeof existsSync>;
 const mockDebug = Debug as jest.MockedFunction<typeof Debug>;
-const mockSecretsmanager = secretsmanager as jest.MockedFunction<
-  typeof secretsmanager
->;
+interface SecretsmanagerMockFn {
+  (options: Record<string, unknown>): Promise<Record<string, string>>;
+}
+const mockSecretsmanager =
+  secretsmanager as unknown as jest.MockedFunction<SecretsmanagerMockFn>;
 const mockObjectToExport = objectToExport as jest.MockedFunction<
   typeof objectToExport
 >;

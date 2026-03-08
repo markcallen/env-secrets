@@ -87,6 +87,9 @@ const awsCommand = program
 
     const secrets = await secretsmanager(options);
     debug(secrets);
+    const envSecrets = Object.fromEntries(
+      Object.entries(secrets).map(([key, value]) => [key, String(value)])
+    );
 
     if (options.output) {
       // Check if file already exists
@@ -99,13 +102,13 @@ const awsCommand = program
       }
 
       // Write secrets to file with 0400 permissions
-      const envContent = objectToExport(secrets);
+      const envContent = objectToExport(envSecrets);
       writeFileSync(options.output, envContent, { mode: 0o400 });
       // eslint-disable-next-line no-console
       console.log(`Secrets written to ${options.output}`);
     } else {
       // Original behavior: merge secrets into environment and run program
-      const env = Object.assign({}, process.env, secrets);
+      const env = Object.assign({}, process.env, envSecrets);
       debug(env);
       if (program && program.length > 0) {
         debug(`${program[0]} ${program.slice(1)}`);

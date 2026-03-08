@@ -5,6 +5,7 @@ import {
 import { STSClient, GetCallerIdentityCommand } from '@aws-sdk/client-sts';
 import Debug from 'debug';
 import { buildAwsClientConfig } from './aws-config';
+import { parseEnvSecrets } from '../cli/helpers';
 
 const debug = Debug('env-secrets:secretsmanager');
 
@@ -18,6 +19,68 @@ interface AWSLikeError {
   name?: string;
   message?: string;
 }
+
+type SecretValue = string | number | boolean;
+
+const isSecretValue = (value: unknown): value is SecretValue => {
+  return (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean'
+  );
+};
+
+const asSecretRecord = (value: unknown): Record<string, SecretValue> => {
+  if (!value || Array.isArray(value) || typeof value !== 'object') {
+    return {};
+  }
+
+  return Object.entries(value).reduce<Record<string, SecretValue>>(
+    (result, [key, entryValue]) => {
+      if (isSecretValue(entryValue)) {
+        result[key] = entryValue;
+      }
+
+      return result;
+    },
+    {}
+  );
+};
+
+const parseSecretString = (
+  secretvalue: string
+): Record<string, SecretValue> => {
+  const parseAsEnvRecord = (envSource: string): Record<string, SecretValue> => {
+    try {
+      const parsedEnv = parseEnvSecrets(envSource);
+      if (parsedEnv.entries.length === 0) {
+        return {};
+      }
+
+      return Object.fromEntries(
+        parsedEnv.entries.map((entry) => [entry.key, entry.value])
+      );
+    } catch {
+      return {};
+    }
+  };
+
+  try {
+    const parsedJson = JSON.parse(secretvalue);
+    const parsedRecord = asSecretRecord(parsedJson);
+    if (Object.keys(parsedRecord).length > 0) {
+      return parsedRecord;
+    }
+
+    if (typeof parsedJson === 'string') {
+      return parseAsEnvRecord(parsedJson);
+    }
+
+    return {};
+  } catch {
+    return parseAsEnvRecord(secretvalue);
+  }
+};
 
 const isCredentialsError = (error: unknown): error is AWSLikeError => {
   if (!error || typeof error !== 'object') {
@@ -81,13 +144,8 @@ export const secretsmanager = async (options: secretsmanagerType) => {
       const response = await client.send(command);
       const secretvalue = response.SecretString;
 
-      try {
-        if (secretvalue) {
-          return JSON.parse(secretvalue);
-        }
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error(err);
+      if (secretvalue) {
+        return parseSecretString(secretvalue);
       }
     } catch (err: unknown) {
       if (err && typeof err === 'object' && 'name' in err) {

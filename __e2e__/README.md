@@ -75,7 +75,7 @@ npm run test:e2e:coverage
 
 ```bash
 npm run build
-npx jest --config jest.e2e.config.js __e2e__/index.test.ts
+npx jest --config jest.e2e.config.js __e2e__/aws-get-secrets-args.test.ts
 ```
 
 ### Run Tests with Debug Output
