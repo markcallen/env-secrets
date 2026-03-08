@@ -247,6 +247,23 @@ describe('secretsmanager', () => {
       expect(result).toEqual({});
     });
 
+    it('should parse dotenv style secret values', async () => {
+      mockSecretsManagerSend.mockResolvedValueOnce({
+        SecretString:
+          'GITHUB_PAT=github_pat_123\nexport API_URL=https://example.com'
+      });
+
+      const result = await secretsmanager({
+        secret: 'my-secret',
+        region: 'us-east-1'
+      });
+
+      expect(result).toEqual({
+        GITHUB_PAT: 'github_pat_123',
+        API_URL: 'https://example.com'
+      });
+    });
+
     it('should handle empty secret values', async () => {
       mockSecretsManagerSend.mockResolvedValueOnce({
         SecretString: ''
@@ -276,6 +293,19 @@ describe('secretsmanager', () => {
     it('should handle malformed JSON in secret values', async () => {
       mockSecretsManagerSend.mockResolvedValueOnce({
         SecretString: '{"invalid": json}'
+      });
+
+      const result = await secretsmanager({
+        secret: 'my-secret',
+        region: 'us-east-1'
+      });
+
+      expect(result).toEqual({});
+    });
+
+    it('should return empty object for malformed dotenv lines', async () => {
+      mockSecretsManagerSend.mockResolvedValueOnce({
+        SecretString: 'NOT_VALID_LINE'
       });
 
       const result = await secretsmanager({

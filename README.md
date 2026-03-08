@@ -539,7 +539,7 @@ npm run test:e2e
 npm run test:e2e:coverage
 
 # Run specific e2e test
-yarn build && npx jest --config jest.e2e.config.js __e2e__/index.test.ts -t "test name"
+yarn build && npx jest --config jest.e2e.config.js __e2e__/aws-get-secrets-args.test.ts -t "test name"
 ```
 
 #### E2E Test Features

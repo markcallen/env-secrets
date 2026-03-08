@@ -584,26 +584,11 @@ export function cleanupTempFile(filePath: string): void {
 }
 
 export function createTestProfile() {
-  const homeDir = os.homedir();
-  const awsDir = path.join(homeDir, '.aws');
-  const credentialsFile = path.join(awsDir, 'credentials');
-  const configFile = path.join(awsDir, 'config');
-
-  // Create .aws directory if it doesn't exist
-  if (!fs.existsSync(awsDir)) {
-    fs.mkdirSync(awsDir, { mode: 0o700 });
-  }
-
-  // Backup existing files if they exist
-  const backupCredentials = credentialsFile + '.backup';
-  const backupConfig = configFile + '.backup';
-
-  if (fs.existsSync(credentialsFile)) {
-    fs.copyFileSync(credentialsFile, backupCredentials);
-  }
-  if (fs.existsSync(configFile)) {
-    fs.copyFileSync(configFile, backupConfig);
-  }
+  const tempAwsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'env-secrets-aws-'));
+  const credentialsFile = path.join(tempAwsDir, 'credentials');
+  const configFile = path.join(tempAwsDir, 'config');
+  const previousCredentialsFile = process.env.AWS_SHARED_CREDENTIALS_FILE;
+  const previousConfigFile = process.env.AWS_CONFIG_FILE;
 
   // Create test profile
   const credentialsContent = `[default]
@@ -625,34 +610,45 @@ region = us-east-1
   fs.writeFileSync(credentialsFile, credentialsContent, { mode: 0o600 });
   fs.writeFileSync(configFile, configContent, { mode: 0o600 });
 
-  return awsDir;
+  process.env.AWS_SHARED_CREDENTIALS_FILE = credentialsFile;
+  process.env.AWS_CONFIG_FILE = configFile;
+
+  return {
+    tempAwsDir,
+    previousCredentialsFile,
+    previousConfigFile
+  };
 }
 
-export function restoreTestProfile(awsDir: string | undefined): void {
-  if (!awsDir) {
+export interface TestProfileContext {
+  tempAwsDir: string;
+  previousCredentialsFile?: string;
+  previousConfigFile?: string;
+}
+
+export function restoreTestProfile(
+  profileContext: TestProfileContext | undefined
+): void {
+  if (!profileContext) {
     debugWarn('No AWS directory provided for profile restoration');
     return;
   }
 
-  const credentialsFile = path.join(awsDir, 'credentials');
-  const configFile = path.join(awsDir, 'config');
-  const backupCredentials = credentialsFile + '.backup';
-  const backupConfig = configFile + '.backup';
-
   try {
-    if (fs.existsSync(backupCredentials)) {
-      fs.copyFileSync(backupCredentials, credentialsFile);
-      fs.unlinkSync(backupCredentials);
-    } else if (fs.existsSync(credentialsFile)) {
-      fs.unlinkSync(credentialsFile);
+    if (profileContext.previousCredentialsFile) {
+      process.env.AWS_SHARED_CREDENTIALS_FILE =
+        profileContext.previousCredentialsFile;
+    } else {
+      delete process.env.AWS_SHARED_CREDENTIALS_FILE;
     }
 
-    if (fs.existsSync(backupConfig)) {
-      fs.copyFileSync(backupConfig, configFile);
-      fs.unlinkSync(backupConfig);
-    } else if (fs.existsSync(configFile)) {
-      fs.unlinkSync(configFile);
+    if (profileContext.previousConfigFile) {
+      process.env.AWS_CONFIG_FILE = profileContext.previousConfigFile;
+    } else {
+      delete process.env.AWS_CONFIG_FILE;
     }
+
+    fs.rmSync(profileContext.tempAwsDir, { recursive: true, force: true });
   } catch (error) {
     debugWarn('Failed to restore AWS profile:', error);
   }
