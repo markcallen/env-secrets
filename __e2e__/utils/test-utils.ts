@@ -630,7 +630,7 @@ export function restoreTestProfile(
   profileContext: TestProfileContext | undefined
 ): void {
   if (!profileContext) {
-    debugWarn('No AWS directory provided for profile restoration');
+    debugWarn('No test profile context provided for profile restoration');
     return;
   }
 

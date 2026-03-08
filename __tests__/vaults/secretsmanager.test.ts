@@ -264,6 +264,23 @@ describe('secretsmanager', () => {
       });
     });
 
+    it('should parse JSON-encoded dotenv style secret values', async () => {
+      mockSecretsManagerSend.mockResolvedValueOnce({
+        SecretString:
+          '"GITHUB_PAT=github_pat_123\\nexport API_URL=https://example.com"'
+      });
+
+      const result = await secretsmanager({
+        secret: 'my-secret',
+        region: 'us-east-1'
+      });
+
+      expect(result).toEqual({
+        GITHUB_PAT: 'github_pat_123',
+        API_URL: 'https://example.com'
+      });
+    });
+
     it('should handle empty secret values', async () => {
       mockSecretsManagerSend.mockResolvedValueOnce({
         SecretString: ''

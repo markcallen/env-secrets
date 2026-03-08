@@ -50,11 +50,9 @@ const asSecretRecord = (value: unknown): Record<string, SecretValue> => {
 const parseSecretString = (
   secretvalue: string
 ): Record<string, SecretValue> => {
-  try {
-    return asSecretRecord(JSON.parse(secretvalue));
-  } catch {
+  const parseAsEnvRecord = (envSource: string): Record<string, SecretValue> => {
     try {
-      const parsedEnv = parseEnvSecrets(secretvalue);
+      const parsedEnv = parseEnvSecrets(envSource);
       if (parsedEnv.entries.length === 0) {
         return {};
       }
@@ -65,6 +63,22 @@ const parseSecretString = (
     } catch {
       return {};
     }
+  };
+
+  try {
+    const parsedJson = JSON.parse(secretvalue);
+    const parsedRecord = asSecretRecord(parsedJson);
+    if (Object.keys(parsedRecord).length > 0) {
+      return parsedRecord;
+    }
+
+    if (typeof parsedJson === 'string') {
+      return parseAsEnvRecord(parsedJson);
+    }
+
+    return {};
+  } catch {
+    return parseAsEnvRecord(secretvalue);
   }
 };
 
