@@ -202,7 +202,7 @@ source secrets.env
 
    `create` always writes a JSON object:
 
-   - object JSON input is preserved (`{"API_KEY":"abc123"}`)
+   - object JSON input is preserved semantically as an object (formatting and key order may change) (`{"API_KEY":"abc123"}`)
    - dotenv-style input is converted (`KEY=value` -> `{"KEY":"value"}`)
    - non-object/scalar input is wrapped (`super-secret-value` -> `{"value":"super-secret-value"}`)
 

@@ -248,7 +248,7 @@ env-secrets aws secret upsert --file .env --name app/dev --output json
 
 `env-secrets aws secret create` also always stores `SecretString` as a JSON object:
 
-- object JSON input is preserved
+- object JSON input is preserved semantically as an object (formatting and key order may change)
 - dotenv-style input is converted into key/value pairs
 - scalar input is wrapped as `{"value":"..."}`.
 
