@@ -18,6 +18,7 @@ import {
 } from './vaults/secretsmanager-admin';
 import {
   asOutputFormat,
+  parseEnvSecrets,
   parseEnvSecretsFile,
   printData,
   parseRecoveryDays,
@@ -56,6 +57,48 @@ const parseSecretJsonObject = (
   }
 
   return parsed as Record<string, unknown>;
+};
+
+const parseEnvToObject = (
+  value: string
+): Record<string, unknown> | undefined => {
+  try {
+    const parsed = parseEnvSecrets(value);
+    if (parsed.entries.length === 0) {
+      return undefined;
+    }
+
+    return Object.fromEntries(
+      parsed.entries.map((entry) => [entry.key, entry.value])
+    );
+  } catch {
+    return undefined;
+  }
+};
+
+const toSecretJsonObject = (value: string): Record<string, unknown> => {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (parsed && !Array.isArray(parsed) && typeof parsed === 'object') {
+      return parsed as Record<string, unknown>;
+    }
+
+    if (typeof parsed === 'string') {
+      const envPayload = parseEnvToObject(parsed);
+      if (envPayload) {
+        return envPayload;
+      }
+    }
+
+    return { value: parsed };
+  } catch {
+    const envPayload = parseEnvToObject(value);
+    if (envPayload) {
+      return envPayload;
+    }
+  }
+
+  return { value };
 };
 
 // main program
@@ -166,9 +209,10 @@ secretCommand
         );
       }
 
+      const payload = toSecretJsonObject(value);
       const result = await createSecret({
         name: options.name,
-        value,
+        value: JSON.stringify(payload),
         description: options.description,
         kmsKeyId: options.kmsKeyId,
         tags: options.tag,
