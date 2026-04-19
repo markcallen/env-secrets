@@ -115,7 +115,6 @@ describe('index.ts CLI functionality', () => {
       if (program && program.length > 0) {
         mockSpawn(program[0], program.slice(1), {
           stdio: 'inherit',
-          shell: true,
           env
         });
       }
@@ -125,7 +124,6 @@ describe('index.ts CLI functionality', () => {
         ['script.js', 'arg1', 'arg2'],
         {
           stdio: 'inherit',
-          shell: true,
           env: expect.objectContaining({
             SECRET_KEY: 'secret_value'
           })
@@ -145,7 +143,6 @@ describe('index.ts CLI functionality', () => {
       if (program && program.length > 0) {
         mockSpawn(program[0], program.slice(1), {
           stdio: 'inherit',
-          shell: true,
           env
         });
       }
@@ -165,7 +162,6 @@ describe('index.ts CLI functionality', () => {
       if (program && program.length > 0) {
         mockSpawn(program[0], program.slice(1), {
           stdio: 'inherit',
-          shell: true,
           env
         });
       }
@@ -194,14 +190,12 @@ describe('index.ts CLI functionality', () => {
       if (program && program.length > 0) {
         mockSpawn(program[0], program.slice(1), {
           stdio: 'inherit',
-          shell: true,
           env
         });
       }
 
       expect(mockSpawn).toHaveBeenCalledWith('echo', [], {
         stdio: 'inherit',
-        shell: true,
         env: expect.objectContaining({
           SECRET_KEY: 'secret_value'
         })
@@ -227,14 +221,12 @@ describe('index.ts CLI functionality', () => {
       if (program && program.length > 0) {
         mockSpawn(program[0], program.slice(1), {
           stdio: 'inherit',
-          shell: true,
           env
         });
       }
 
       expect(mockSpawn).toHaveBeenCalledWith('echo', [], {
         stdio: 'inherit',
-        shell: true,
         env: expect.objectContaining({
           PATH: '/usr/bin',
           HOME: '/home/user',
@@ -255,14 +247,12 @@ describe('index.ts CLI functionality', () => {
       if (program && program.length > 0) {
         mockSpawn(program[0], program.slice(1), {
           stdio: 'inherit',
-          shell: true,
           env
         });
       }
 
       expect(mockSpawn).toHaveBeenCalledWith('echo', [], {
         stdio: 'inherit',
-        shell: true,
         env: expect.objectContaining({})
       });
     });
@@ -333,7 +323,6 @@ describe('index.ts CLI functionality', () => {
 
         mockSpawn(program[0], program.slice(1), {
           stdio: 'inherit',
-          shell: true,
           env
         });
       }
@@ -476,7 +465,6 @@ describe('index.ts CLI functionality', () => {
         if (program && program.length > 0) {
           mockSpawn(program[0], program.slice(1), {
             stdio: 'inherit',
-            shell: true,
             env
           });
         }
@@ -485,7 +473,6 @@ describe('index.ts CLI functionality', () => {
       expect(mockSecretsmanager).toHaveBeenCalledWith(options);
       expect(mockSpawn).toHaveBeenCalledWith('echo', ['hello'], {
         stdio: 'inherit',
-        shell: true,
         env: expect.objectContaining({
           SECRET_KEY: 'secret_value'
         })
@@ -568,7 +555,6 @@ describe('index.ts CLI functionality', () => {
         if (program && program.length > 0) {
           mockSpawn(program[0], program.slice(1), {
             stdio: 'inherit',
-            shell: true,
             env
           });
         }

@@ -165,7 +165,6 @@ const awsCommand = program
 
         spawn(program[0], program.slice(1), {
           stdio: 'inherit',
-          shell: true,
           env
         });
       }
