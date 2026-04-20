@@ -654,6 +654,84 @@ export function restoreTestProfile(
   }
 }
 
+/**
+ * Like cliWithEnv but does NOT set NODE_ENV=test, so the real spawn path in
+ * src/index.ts is exercised instead of the early-return test branch.
+ */
+export async function cliWithRealSpawn(
+  args: string[],
+  env: Record<string, string>,
+  cwd = '.'
+): Promise<CliResult> {
+  return new Promise((resolve) => {
+    const cleanEnv = { ...process.env };
+    delete cleanEnv.AWS_PROFILE;
+    delete cleanEnv.AWS_DEFAULT_PROFILE;
+    delete cleanEnv.AWS_SESSION_TOKEN;
+    delete cleanEnv.AWS_SECURITY_TOKEN;
+    delete cleanEnv.AWS_ROLE_ARN;
+    delete cleanEnv.AWS_ROLE_SESSION_NAME;
+    delete cleanEnv.AWS_WEB_IDENTITY_TOKEN_FILE;
+    delete cleanEnv.AWS_WEB_IDENTITY_TOKEN;
+    // Deliberately omit NODE_ENV=test so real spawn is used
+    delete cleanEnv.NODE_ENV;
+
+    const defaultEnv = {
+      AWS_ENDPOINT_URL: process.env.LOCALSTACK_URL || 'http://localhost:4566',
+      AWS_ACCESS_KEY_ID: 'test',
+      AWS_SECRET_ACCESS_KEY: 'test',
+      AWS_DEFAULT_REGION: 'us-east-1',
+      AWS_REGION: 'us-east-1'
+    };
+
+    const envVars = { ...cleanEnv, ...defaultEnv, ...env };
+    const cliPath = path.resolve('./dist/index');
+    const spawnArgs = [cliPath, ...args];
+    const command = `node ${cliPath} ${args.join(' ')}`;
+
+    debugLog(`Running CLI command (real spawn): ${command}`);
+
+    const child = spawn('node', spawnArgs, { cwd, env: envVars });
+
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+
+    child.on('close', (code: number | null, signal: NodeJS.Signals | null) => {
+      const exitCode = code ?? (signal ? 1 : 0);
+      const errorMessage = signal
+        ? `Process terminated by signal ${signal}`
+        : exitCode !== 0
+        ? `Process exited with code ${exitCode}`
+        : null;
+      const result = {
+        code: exitCode,
+        error: errorMessage ? new Error(errorMessage) : null,
+        stdout,
+        stderr
+      };
+
+      if (exitCode !== 0) {
+        debugError(
+          signal
+            ? `CLI command failed: terminated by signal ${signal}`
+            : `CLI command failed with code ${exitCode}`
+        );
+        debugError(`Command: ${command}`);
+        debugError(`Stdout: ${result.stdout}`);
+        debugError(`Stderr: ${result.stderr}`);
+      }
+
+      resolve(result);
+    });
+  });
+}
+
 export async function checkAwslocalInstalled(): Promise<void> {
   try {
     await execAwslocalCommand('awslocal --version', {});
