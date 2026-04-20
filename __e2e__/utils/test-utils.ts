@@ -685,20 +685,37 @@ export async function cliWithRealSpawn(
     };
 
     const envVars = { ...cleanEnv, ...defaultEnv, ...env };
-    const command = `node ${path.resolve('./dist/index')} ${args.join(' ')}`;
+    const cliPath = path.resolve('./dist/index');
+    const spawnArgs = [cliPath, ...args];
+    const command = `node ${cliPath} ${args.join(' ')}`;
 
     debugLog(`Running CLI command (real spawn): ${command}`);
 
-    exec(command, { cwd, env: envVars }, (error, stdout, stderr) => {
+    const child = spawn('node', spawnArgs, { cwd, env: envVars });
+
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+
+    child.on('close', (code: number | null) => {
+      const exitCode = code ?? 0;
       const result = {
-        code: error && error.code ? error.code : 0,
-        error: error || null,
+        code: exitCode,
+        error:
+          exitCode !== 0
+            ? new Error(`Process exited with code ${exitCode}`)
+            : null,
         stdout,
         stderr
       };
 
-      if (result.code !== 0) {
-        debugError(`CLI command failed with code ${result.code}`);
+      if (exitCode !== 0) {
+        debugError(`CLI command failed with code ${exitCode}`);
         debugError(`Command: ${command}`);
         debugError(`Stdout: ${result.stdout}`);
         debugError(`Stderr: ${result.stderr}`);
