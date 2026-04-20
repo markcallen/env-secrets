@@ -46,23 +46,16 @@ describe('AWS Program Execution CLI Args', () => {
 describe('AWS Real Spawn Execution (no NODE_ENV=test)', () => {
   const { createTestSecret, getLocalStackEnv } = registerAwsE2eContext();
 
-  test('injected env vars are visible to the spawned child process', async () => {
+  test('injected env vars are visible to the spawned child process (shell mode)', async () => {
     const secret = await createTestSecret({
       name: `test-secret-realspawn-${Date.now()}`,
       value: '{"INJECTED_KEY": "injected_value"}',
       description: 'Real spawn env injection test'
     });
 
+    // printenv avoids any shell-quoting complexity in the test command string
     const result = await cliWithRealSpawn(
-      [
-        'aws',
-        '-s',
-        secret.prefixedName,
-        '--',
-        'node',
-        '-e',
-        '"process.stdout.write(process.env.INJECTED_KEY + \'\\n\')"'
-      ],
+      ['aws', '-s', secret.prefixedName, '--', 'printenv', 'INJECTED_KEY'],
       getLocalStackEnv()
     );
 
@@ -77,15 +70,17 @@ describe('AWS Real Spawn Execution (no NODE_ENV=test)', () => {
       description: 'Exit code propagation test (success)'
     });
 
+    // Use --no-shell so node -e args are passed directly without shell re-parsing
     const result = await cliWithRealSpawn(
       [
         'aws',
         '-s',
         secret.prefixedName,
+        '--no-shell',
         '--',
         'node',
         '-e',
-        '"process.exit(0)"'
+        'process.exit(0)'
       ],
       getLocalStackEnv()
     );
@@ -100,15 +95,17 @@ describe('AWS Real Spawn Execution (no NODE_ENV=test)', () => {
       description: 'Exit code propagation test (failure)'
     });
 
+    // Use --no-shell so node -e args are passed directly without shell re-parsing
     const result = await cliWithRealSpawn(
       [
         'aws',
         '-s',
         secret.prefixedName,
+        '--no-shell',
         '--',
         'node',
         '-e',
-        '"process.exit(42)"'
+        'process.exit(42)'
       ],
       getLocalStackEnv()
     );
@@ -123,6 +120,7 @@ describe('AWS Real Spawn Execution (no NODE_ENV=test)', () => {
       description: 'No-shell spawn test'
     });
 
+    // printenv avoids any shell-quoting complexity in the test command string
     const result = await cliWithRealSpawn(
       [
         'aws',
@@ -130,9 +128,8 @@ describe('AWS Real Spawn Execution (no NODE_ENV=test)', () => {
         secret.prefixedName,
         '--no-shell',
         '--',
-        'node',
-        '-e',
-        'process.stdout.write(process.env.INJECTED_KEY+String.fromCharCode(10))'
+        'printenv',
+        'INJECTED_KEY'
       ],
       getLocalStackEnv()
     );

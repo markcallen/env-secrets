@@ -167,8 +167,19 @@ const awsCommand = program
           return;
         }
 
+        // Shell-quote each argument so that args containing spaces, parens,
+        // quotes, or other special characters survive the shell round-trip.
+        const shellEscape = (s: string): string => {
+          if (/^[a-zA-Z0-9_\-./:@,+=]+$/.test(s)) return s;
+          return "'" + s.replace(/'/g, "'\\''") + "'";
+        };
+
         const child = options.shell
-          ? spawn(program.join(' '), [], { stdio: 'inherit', shell: true, env })
+          ? spawn(program.map(shellEscape).join(' '), [], {
+              stdio: 'inherit',
+              shell: true,
+              env
+            })
           : spawn(program[0], program.slice(1), { stdio: 'inherit', env });
 
         child.on('error', (err) => {
