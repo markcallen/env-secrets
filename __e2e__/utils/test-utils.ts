@@ -702,20 +702,26 @@ export async function cliWithRealSpawn(
       stderr += chunk.toString();
     });
 
-    child.on('close', (code: number | null) => {
-      const exitCode = code ?? 0;
+    child.on('close', (code: number | null, signal: NodeJS.Signals | null) => {
+      const exitCode = code ?? (signal ? 1 : 0);
+      const errorMessage = signal
+        ? `Process terminated by signal ${signal}`
+        : exitCode !== 0
+        ? `Process exited with code ${exitCode}`
+        : null;
       const result = {
         code: exitCode,
-        error:
-          exitCode !== 0
-            ? new Error(`Process exited with code ${exitCode}`)
-            : null,
+        error: errorMessage ? new Error(errorMessage) : null,
         stdout,
         stderr
       };
 
       if (exitCode !== 0) {
-        debugError(`CLI command failed with code ${exitCode}`);
+        debugError(
+          signal
+            ? `CLI command failed: terminated by signal ${signal}`
+            : `CLI command failed with code ${exitCode}`
+        );
         debugError(`Command: ${command}`);
         debugError(`Stdout: ${result.stdout}`);
         debugError(`Stderr: ${result.stderr}`);
