@@ -39,6 +39,24 @@ const mockObjectToExport = objectToExport as jest.MockedFunction<
   typeof objectToExport
 >;
 
+// Build a ChildProcess-like mock that records event handlers
+function makeChildMock() {
+  const handlers: Record<string, ((...args: unknown[]) => void)[]> = {};
+  const child = {
+    stdio: 'inherit',
+    on: jest.fn((event: string, cb: (...args: unknown[]) => void) => {
+      if (!handlers[event]) handlers[event] = [];
+      handlers[event].push(cb);
+      return child;
+    }),
+    emit(event: string, ...args: unknown[]) {
+      (handlers[event] ?? []).forEach((cb) => cb(...args));
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } as any;
+  return child;
+}
+
 describe('index.ts CLI functionality', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -94,41 +112,67 @@ describe('index.ts CLI functionality', () => {
       );
     });
 
-    it('should spawn a program when provided', async () => {
+    it('should spawn using shell (default) with joined command string', async () => {
       const mockEnv = { SECRET_KEY: 'secret_value' };
       mockSecretsmanager.mockResolvedValue(mockEnv);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mockChildProcess = {
-        stdio: 'inherit'
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any;
-      mockSpawn.mockReturnValue(mockChildProcess);
+      const child = makeChildMock();
+      mockSpawn.mockReturnValue(child);
 
       const program = ['node', 'script.js', 'arg1', 'arg2'];
-      const options = { secret: 'my-secret' };
+      const options = { secret: 'my-secret', shell: true };
 
-      // Simulate the action logic
       let env = await mockSecretsmanager(options);
       env = Object.assign({}, process.env, env);
 
       if (program && program.length > 0) {
-        mockSpawn(program[0], program.slice(1), {
+        mockSpawn(program.join(' '), [], {
           stdio: 'inherit',
+          shell: true,
           env
         });
       }
 
-      expect(mockSpawn).toHaveBeenCalledWith(
-        'node',
-        ['script.js', 'arg1', 'arg2'],
-        {
-          stdio: 'inherit',
-          env: expect.objectContaining({
-            SECRET_KEY: 'secret_value'
-          })
+      expect(mockSpawn).toHaveBeenCalledWith('node script.js arg1 arg2', [], {
+        stdio: 'inherit',
+        shell: true,
+        env: expect.objectContaining({
+          SECRET_KEY: 'secret_value'
+        })
+      });
+    });
+
+    it('should spawn without shell when --no-shell is passed', async () => {
+      const mockEnv = { SECRET_KEY: 'secret_value' };
+      mockSecretsmanager.mockResolvedValue(mockEnv);
+
+      const child = makeChildMock();
+      mockSpawn.mockReturnValue(child);
+
+      const program = ['node', 'script.js', 'arg1'];
+      const options = { secret: 'my-secret', shell: false };
+
+      let env = await mockSecretsmanager(options);
+      env = Object.assign({}, process.env, env);
+
+      if (program && program.length > 0) {
+        if (options.shell) {
+          mockSpawn(program.join(' '), [], {
+            stdio: 'inherit',
+            shell: true,
+            env
+          });
+        } else {
+          mockSpawn(program[0], program.slice(1), { stdio: 'inherit', env });
         }
-      );
+      }
+
+      expect(mockSpawn).toHaveBeenCalledWith('node', ['script.js', 'arg1'], {
+        stdio: 'inherit',
+        env: expect.objectContaining({
+          SECRET_KEY: 'secret_value'
+        })
+      });
     });
 
     it('should not spawn a program when no program is provided', async () => {
@@ -141,8 +185,9 @@ describe('index.ts CLI functionality', () => {
 
       const program: string[] = [];
       if (program && program.length > 0) {
-        mockSpawn(program[0], program.slice(1), {
+        mockSpawn(program.join(' '), [], {
           stdio: 'inherit',
+          shell: true,
           env
         });
       }
@@ -160,8 +205,9 @@ describe('index.ts CLI functionality', () => {
 
       const program: string[] = [];
       if (program && program.length > 0) {
-        mockSpawn(program[0], program.slice(1), {
+        mockSpawn(program.join(' '), [], {
           stdio: 'inherit',
+          shell: true,
           env
         });
       }
@@ -169,33 +215,30 @@ describe('index.ts CLI functionality', () => {
       expect(mockSpawn).not.toHaveBeenCalled();
     });
 
-    it('should handle single program argument', async () => {
+    it('should handle single program argument (shell mode)', async () => {
       const mockEnv = { SECRET_KEY: 'secret_value' };
       mockSecretsmanager.mockResolvedValue(mockEnv);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mockChildProcess = {
-        stdio: 'inherit'
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any;
-      mockSpawn.mockReturnValue(mockChildProcess);
+      const child = makeChildMock();
+      mockSpawn.mockReturnValue(child);
 
       const program = ['echo'];
-      const options = { secret: 'my-secret' };
+      const options = { secret: 'my-secret', shell: true };
 
-      // Simulate the action logic
       let env = await mockSecretsmanager(options);
       env = Object.assign({}, process.env, env);
 
       if (program && program.length > 0) {
-        mockSpawn(program[0], program.slice(1), {
+        mockSpawn(program.join(' '), [], {
           stdio: 'inherit',
+          shell: true,
           env
         });
       }
 
       expect(mockSpawn).toHaveBeenCalledWith('echo', [], {
         stdio: 'inherit',
+        shell: true,
         env: expect.objectContaining({
           SECRET_KEY: 'secret_value'
         })
@@ -213,20 +256,21 @@ describe('index.ts CLI functionality', () => {
 
       mockSecretsmanager.mockResolvedValue(mockSecrets);
 
-      // Simulate the action logic
       let env = await mockSecretsmanager({ secret: 'my-secret' });
       env = Object.assign({}, process.env, env);
 
       const program = ['echo'];
       if (program && program.length > 0) {
-        mockSpawn(program[0], program.slice(1), {
+        mockSpawn(program.join(' '), [], {
           stdio: 'inherit',
+          shell: true,
           env
         });
       }
 
       expect(mockSpawn).toHaveBeenCalledWith('echo', [], {
         stdio: 'inherit',
+        shell: true,
         env: expect.objectContaining({
           PATH: '/usr/bin',
           HOME: '/home/user',
@@ -239,20 +283,21 @@ describe('index.ts CLI functionality', () => {
     it('should handle secretsmanager returning empty object', async () => {
       mockSecretsmanager.mockResolvedValue({});
 
-      // Simulate the action logic
       let env = await mockSecretsmanager({ secret: 'my-secret' });
       env = Object.assign({}, process.env, env);
 
       const program = ['echo'];
       if (program && program.length > 0) {
-        mockSpawn(program[0], program.slice(1), {
+        mockSpawn(program.join(' '), [], {
           stdio: 'inherit',
+          shell: true,
           env
         });
       }
 
       expect(mockSpawn).toHaveBeenCalledWith('echo', [], {
         stdio: 'inherit',
+        shell: true,
         env: expect.objectContaining({})
       });
     });
@@ -265,6 +310,128 @@ describe('index.ts CLI functionality', () => {
       await expect(mockSecretsmanager({ secret: 'my-secret' })).rejects.toThrow(
         'AWS connection failed'
       );
+    });
+
+    describe('ChildProcess error and exit handling', () => {
+      beforeEach(() => {
+        jest.spyOn(process, 'exit').mockImplementation(() => {
+          throw new Error('process.exit called');
+        });
+        jest.spyOn(console, 'error').mockImplementation(() => undefined);
+      });
+
+      afterEach(() => {
+        jest.restoreAllMocks();
+      });
+
+      it('should print error message and exit 1 on child process error', async () => {
+        const mockEnv = { SECRET_KEY: 'secret_value' };
+        mockSecretsmanager.mockResolvedValue(mockEnv);
+
+        const child = makeChildMock();
+        mockSpawn.mockReturnValue(child);
+
+        let env = await mockSecretsmanager({ secret: 'my-secret' });
+        env = Object.assign({}, process.env, env);
+
+        const program = ['nonexistent-cmd'];
+        mockSpawn(program.join(' '), [], {
+          stdio: 'inherit',
+          shell: true,
+          env
+        });
+
+        // Simulate attaching handlers as src/index.ts does
+        child.on('error', (err: Error) => {
+          // eslint-disable-next-line no-console
+          console.error(`Failed to start process: ${err.message}`);
+          process.exit(1);
+        });
+
+        expect(() => child.emit('error', new Error('spawn ENOENT'))).toThrow(
+          'process.exit called'
+        );
+
+        // eslint-disable-next-line no-console
+        expect(console.error).toHaveBeenCalledWith(
+          'Failed to start process: spawn ENOENT'
+        );
+        expect(process.exit).toHaveBeenCalledWith(1);
+      });
+
+      it('should propagate child exit code 0', async () => {
+        const mockEnv = { SECRET_KEY: 'secret_value' };
+        mockSecretsmanager.mockResolvedValue(mockEnv);
+
+        const child = makeChildMock();
+        mockSpawn.mockReturnValue(child);
+
+        let env = await mockSecretsmanager({ secret: 'my-secret' });
+        env = Object.assign({}, process.env, env);
+
+        mockSpawn(['node', '-e', '"process.exit(0)"'].join(' '), [], {
+          stdio: 'inherit',
+          shell: true,
+          env
+        });
+
+        child.on('exit', (code: number | null, signal: string | null) => {
+          process.exit(signal ? 1 : code ?? 0);
+        });
+
+        expect(() => child.emit('exit', 0, null)).toThrow(
+          'process.exit called'
+        );
+        expect(process.exit).toHaveBeenCalledWith(0);
+      });
+
+      it('should propagate non-zero child exit code', async () => {
+        const mockEnv = { SECRET_KEY: 'secret_value' };
+        mockSecretsmanager.mockResolvedValue(mockEnv);
+
+        const child = makeChildMock();
+        mockSpawn.mockReturnValue(child);
+
+        let env = await mockSecretsmanager({ secret: 'my-secret' });
+        env = Object.assign({}, process.env, env);
+
+        mockSpawn(['node', '-e', '"process.exit(42)"'].join(' '), [], {
+          stdio: 'inherit',
+          shell: true,
+          env
+        });
+
+        child.on('exit', (code: number | null, signal: string | null) => {
+          process.exit(signal ? 1 : code ?? 0);
+        });
+
+        expect(() => child.emit('exit', 42, null)).toThrow(
+          'process.exit called'
+        );
+        expect(process.exit).toHaveBeenCalledWith(42);
+      });
+
+      it('should exit 1 when child is killed by a signal', async () => {
+        const mockEnv = { SECRET_KEY: 'secret_value' };
+        mockSecretsmanager.mockResolvedValue(mockEnv);
+
+        const child = makeChildMock();
+        mockSpawn.mockReturnValue(child);
+
+        let env = await mockSecretsmanager({ secret: 'my-secret' });
+        env = Object.assign({}, process.env, env);
+
+        mockSpawn('sleep 10', [], { stdio: 'inherit', shell: true, env });
+
+        child.on('exit', (code: number | null, signal: string | null) => {
+          process.exit(signal ? 1 : code ?? 0);
+        });
+
+        expect(() => child.emit('exit', null, 'SIGTERM')).toThrow(
+          'process.exit called'
+        );
+        expect(process.exit).toHaveBeenCalledWith(1);
+      });
     });
   });
 
@@ -304,12 +471,8 @@ describe('index.ts CLI functionality', () => {
       const mockEnv = { SECRET_KEY: 'secret_value' };
       mockSecretsmanager.mockResolvedValue(mockEnv);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mockChildProcess = {
-        stdio: 'inherit'
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any;
-      mockSpawn.mockReturnValue(mockChildProcess);
+      const child = makeChildMock();
+      mockSpawn.mockReturnValue(child);
 
       const program = ['node', 'script.js', 'arg1'];
 
@@ -321,8 +484,9 @@ describe('index.ts CLI functionality', () => {
         // Simulate debug logging
         mockDebugInstance(`${program[0]} ${program.slice(1).join(' ')}`);
 
-        mockSpawn(program[0], program.slice(1), {
+        mockSpawn(program.join(' '), [], {
           stdio: 'inherit',
+          shell: true,
           env
         });
       }
@@ -427,16 +591,12 @@ describe('index.ts CLI functionality', () => {
       const mockSecrets = { SECRET_KEY: 'secret_value' };
       mockSecretsmanager.mockResolvedValue(mockSecrets);
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const mockChildProcess = {
-        stdio: 'inherit'
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      } as any;
-      mockSpawn.mockReturnValue(mockChildProcess);
+      const child = makeChildMock();
+      mockSpawn.mockReturnValue(child);
 
-      const options: { secret: string; output?: string } = {
-        secret: 'my-secret'
-        // No output option
+      const options: { secret: string; output?: string; shell: boolean } = {
+        secret: 'my-secret',
+        shell: true
       };
 
       const program = ['echo', 'hello'];
@@ -463,16 +623,18 @@ describe('index.ts CLI functionality', () => {
         const env = Object.assign({}, process.env, secrets);
 
         if (program && program.length > 0) {
-          mockSpawn(program[0], program.slice(1), {
+          mockSpawn(program.join(' '), [], {
             stdio: 'inherit',
+            shell: true,
             env
           });
         }
       }
 
       expect(mockSecretsmanager).toHaveBeenCalledWith(options);
-      expect(mockSpawn).toHaveBeenCalledWith('echo', ['hello'], {
+      expect(mockSpawn).toHaveBeenCalledWith('echo hello', [], {
         stdio: 'inherit',
+        shell: true,
         env: expect.objectContaining({
           SECRET_KEY: 'secret_value'
         })
@@ -525,9 +687,10 @@ describe('index.ts CLI functionality', () => {
       mockObjectToExport.mockReturnValue(mockEnvContent);
       mockExistsSync.mockReturnValue(false);
 
-      const options: { secret: string; output: string } = {
+      const options: { secret: string; output: string; shell: boolean } = {
         secret: 'my-secret',
-        output: '/tmp/secrets.env'
+        output: '/tmp/secrets.env',
+        shell: true
       };
 
       const program = ['echo', 'hello'];
@@ -553,8 +716,9 @@ describe('index.ts CLI functionality', () => {
         const env = Object.assign({}, process.env, secrets);
 
         if (program && program.length > 0) {
-          mockSpawn(program[0], program.slice(1), {
+          mockSpawn(program.join(' '), [], {
             stdio: 'inherit',
+            shell: true,
             env
           });
         }

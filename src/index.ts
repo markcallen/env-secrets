@@ -121,6 +121,10 @@ const awsCommand = program
     '-o, --output <file>',
     'output secrets to file instead of environment variables'
   )
+  .option(
+    '--no-shell',
+    'run program directly without a shell (disables shell expansion)'
+  )
   .action(async (program, options) => {
     if (!options.secret) {
       exitWithError(
@@ -163,9 +167,18 @@ const awsCommand = program
           return;
         }
 
-        spawn(program[0], program.slice(1), {
-          stdio: 'inherit',
-          env
+        const child = options.shell
+          ? spawn(program.join(' '), [], { stdio: 'inherit', shell: true, env })
+          : spawn(program[0], program.slice(1), { stdio: 'inherit', env });
+
+        child.on('error', (err) => {
+          // eslint-disable-next-line no-console
+          console.error(`Failed to start process: ${err.message}`);
+          process.exit(1);
+        });
+
+        child.on('exit', (code, signal) => {
+          process.exit(signal ? 1 : code ?? 0);
         });
       }
     }

@@ -654,6 +654,61 @@ export function restoreTestProfile(
   }
 }
 
+/**
+ * Like cliWithEnv but does NOT set NODE_ENV=test, so the real spawn path in
+ * src/index.ts is exercised instead of the early-return test branch.
+ */
+export async function cliWithRealSpawn(
+  args: string[],
+  env: Record<string, string>,
+  cwd = '.'
+): Promise<CliResult> {
+  return new Promise((resolve) => {
+    const cleanEnv = { ...process.env };
+    delete cleanEnv.AWS_PROFILE;
+    delete cleanEnv.AWS_DEFAULT_PROFILE;
+    delete cleanEnv.AWS_SESSION_TOKEN;
+    delete cleanEnv.AWS_SECURITY_TOKEN;
+    delete cleanEnv.AWS_ROLE_ARN;
+    delete cleanEnv.AWS_ROLE_SESSION_NAME;
+    delete cleanEnv.AWS_WEB_IDENTITY_TOKEN_FILE;
+    delete cleanEnv.AWS_WEB_IDENTITY_TOKEN;
+    // Deliberately omit NODE_ENV=test so real spawn is used
+    delete cleanEnv.NODE_ENV;
+
+    const defaultEnv = {
+      AWS_ENDPOINT_URL: process.env.LOCALSTACK_URL || 'http://localhost:4566',
+      AWS_ACCESS_KEY_ID: 'test',
+      AWS_SECRET_ACCESS_KEY: 'test',
+      AWS_DEFAULT_REGION: 'us-east-1',
+      AWS_REGION: 'us-east-1'
+    };
+
+    const envVars = { ...cleanEnv, ...defaultEnv, ...env };
+    const command = `node ${path.resolve('./dist/index')} ${args.join(' ')}`;
+
+    debugLog(`Running CLI command (real spawn): ${command}`);
+
+    exec(command, { cwd, env: envVars }, (error, stdout, stderr) => {
+      const result = {
+        code: error && error.code ? error.code : 0,
+        error: error || null,
+        stdout,
+        stderr
+      };
+
+      if (result.code !== 0) {
+        debugError(`CLI command failed with code ${result.code}`);
+        debugError(`Command: ${command}`);
+        debugError(`Stdout: ${result.stdout}`);
+        debugError(`Stderr: ${result.stderr}`);
+      }
+
+      resolve(result);
+    });
+  });
+}
+
 export async function checkAwslocalInstalled(): Promise<void> {
   try {
     await execAwslocalCommand('awslocal --version', {});
