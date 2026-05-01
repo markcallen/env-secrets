@@ -1,7 +1,5 @@
 # Local Development Environment Rules
 
-These rules are intended for Codex (CLI and app).
-
 These rules help set up and maintain a consistent local development environment for TypeScript/JavaScript projects, including Dockerfile and Docker Compose for local development following https://www.markcallen.com/dockerfile-for-typescript/
 
 ---
@@ -21,8 +19,6 @@ You are a local development environment specialist for TypeScript/JavaScript pro
 - Local run scripts, env files (.env.example), and optional containerized dev (e.g. Docker Compose for services).
 - Version managers (nvm, volta) and required Node/npm versions.
 - Pre-commit or pre-push hooks that run tests/lint locally before pushing. For TypeScript projects, run `build` before `test` in these hooks (e.g. `pnpm run build && pnpm test`). Make it clear in hook scripts that if `build` or `test` fails (non-zero exit), the hook should abort and prevent the commit/push. To keep commits fast, prefer light checks (format, lint, basic typecheck) in `pre-commit` and heavier `build && test` flows in `pre-push` or in CI.
-
----
 
 ## Pull Request Workflow
 
@@ -156,16 +152,35 @@ When the user wants a Dockerfile and containerized local development for a Node.
 
    - Exclude: `node_modules`, `dist`, `.env`, `.vscode`, `*.log`, `.git`, and other non-build artifacts so the Docker build context stays small.
 
-3. **Create docker-compose.yml for local development**
+3. **Create both `docker-compose.yaml` and `docker-compose.local.yaml`**
 
-   - Use `build: .` for the app service.
-   - For CLI apps, set `tty: true` so the container doesn't exit immediately.
-   - Use Compose's `develop.watch` so code changes are reflected without full rebuilds:
-     - `action: sync+restart` for source directories (e.g. `src/`) so edits sync in and the process restarts.
-     - `action: rebuild` for `package.json` (and lockfile) so dependency changes trigger an image rebuild.
-   - Set `command` to the dev script (e.g. `yarn dev`, `pnpm run dev`, or `tsx src/index.ts`) so the app runs with watch/hot reload inside the container.
+   - `docker-compose.yaml` should be the default, production-style local stack:
+     - Use `build: .` for the app service so the image is built from the local Dockerfile.
+     - Run the built app with a production-style command such as `npm start`, `pnpm start`, or `node dist/index.js`.
+     - Include the other required services for the application (for example Postgres, Redis, or other local dependencies) with sensible ports, volumes, healthchecks, and `depends_on` wiring.
+     - For CLI apps, set `tty: true` so the app container stays attached when appropriate.
+   - `docker-compose.local.yaml` should be the developer override for fast iteration:
+     - Reuse the app service from `docker-compose.yaml`.
+     - Add Compose `develop.watch` so code changes are reflected without a full manual rebuild.
+     - Use `action: sync+restart` for source directories (for example `src/`) so edits sync into the container and the process restarts.
+     - Use `action: rebuild` for dependency manifests such as `package.json` and the lockfile so dependency changes rebuild the image.
+     - Set `command` to the dev script (for example `yarn dev`, `pnpm run dev`, or `tsx src/index.ts`) so the app runs with watch or hot reload inside the container.
+   - Keep shared services defined once where practical so `docker-compose.local.yaml` layers on top of the base stack instead of duplicating everything.
 
-4. **Ensure package.json scripts**
+4. **Create a Makefile for Docker Compose workflows**
+
+   - Add targets for the base stack:
+     - `make up` runs `docker compose up --build`.
+     - `make down` runs `docker compose down`.
+     - `make logs` runs `docker compose logs -f`.
+   - Add targets for the local/watch stack using both compose files:
+     - `make up-local` runs `docker compose -f docker-compose.yaml -f docker-compose.local.yaml up --build --watch`.
+     - `make down-local` runs `docker compose -f docker-compose.yaml -f docker-compose.local.yaml down`.
+     - `make logs-local` runs `docker compose -f docker-compose.yaml -f docker-compose.local.yaml logs -f`.
+   - If the project already has a Makefile, extend it instead of replacing it.
+   - Keep target names simple and aligned with the documented developer workflow.
+
+5. **Ensure package.json scripts**
    - `build`: compile/bundle (e.g. `rimraf ./dist && tsc`, or project equivalent).
    - `start`: run the built app (e.g. `node dist/index.js`).
    - `dev`: run for local development with watch (e.g. `tsx src/index.ts` or `ts-node-dev`, etc.).
@@ -176,9 +191,11 @@ When the user wants a Dockerfile and containerized local development for a Node.
 2. Identify package manager (yarn, pnpm, npm) and lockfile name.
 3. Create `.dockerignore` with appropriate exclusions.
 4. Create `Dockerfile` with multi-stage or single-stage build as above.
-5. Create or update `docker-compose.yml` with `develop.watch` and dev `command`.
-6. Verify `package.json` has `build`, `start`, and `dev` scripts; suggest additions if missing.
-7. Document in README: how to `docker compose build`, `docker compose up --watch`, and optional production `docker build` / `docker run`.
+5. Create or update `docker-compose.yaml` for the built app and required services.
+6. Create or update `docker-compose.local.yaml` for `develop.watch` and the dev `command`.
+7. Create or update the `Makefile` with `up`, `down`, and `logs` targets for both the base and local/watch stacks.
+8. Verify `package.json` has `build`, `start`, and `dev` scripts; suggest additions if missing.
+9. Document in README: how to use `make up`, `make down`, `make logs`, `make up-local`, `make down-local`, and `make logs-local`, plus optional `docker build` / `docker run`.
 
 ### Key Snippets
 
@@ -226,13 +243,32 @@ dist
 .git
 ```
 
-**docker-compose.yml (with watch):**
+**docker-compose.yaml (base stack):**
 
 ```yaml
 services:
   app:
     build: .
-    tty: true # omit or set false for long-running servers (e.g. Express)
+    command: pnpm start
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U app']
+```
+
+**docker-compose.local.yaml (watch override):**
+
+```yaml
+services:
+  app:
     develop:
       watch:
         - action: sync+restart
@@ -240,25 +276,53 @@ services:
           target: /app/src
         - action: rebuild
           path: package.json
-    command: yarn dev
+    command: pnpm run dev
 ```
 
-Use `pnpm run dev` or `npm run dev` in `command` if the project uses that package manager. Adjust `path`/`target` if the app uses a different layout (e.g. `app/` instead of `src/`).
+**Makefile:**
+
+```makefile
+COMPOSE := docker compose
+LOCAL_COMPOSE := $(COMPOSE) -f docker-compose.yaml -f docker-compose.local.yaml
+
+up:
+	$(COMPOSE) up --build
+
+down:
+	$(COMPOSE) down
+
+logs:
+	$(COMPOSE) logs -f
+
+up-local:
+	$(LOCAL_COMPOSE) up --build --watch
+
+down-local:
+	$(LOCAL_COMPOSE) down
+
+logs-local:
+	$(LOCAL_COMPOSE) logs -f
+```
+
+Use `pnpm run dev` or `npm run dev` in `docker-compose.local.yaml` if the project uses that package manager. Adjust watched paths, targets, and service names if the app uses a different layout (for example `app/` instead of `src/`).
 
 ### Important Notes
 
 - Keep the Docker build context small: always use a `.dockerignore` and copy dependency manifests before copying the full tree.
 - Use `--frozen-lockfile` (yarn/pnpm) or `npm ci` so production and CI builds are reproducible.
-- For local dev, `develop.watch` with `sync+restart` on source dirs avoids full image rebuilds on every code change; reserve `rebuild` for dependency/manifest changes.
+- Prefer `docker-compose.yaml` as the stable base stack and `docker-compose.local.yaml` as the watch-mode overlay so developers can choose between built-app and hot-reload workflows without maintaining two unrelated stacks.
+- For local dev, `develop.watch` with `sync+restart` on source dirs avoids full image rebuilds on every code change; reserve `rebuild` for dependency or manifest changes.
 - For web apps (e.g. Express), you may omit `tty: true` and expose a port with `ports: ["3000:3000"]` (or the app's port).
+- When the app depends on backing services, include them in the compose stack instead of documenting them separately so `make up` and `make up-local` start a complete working environment.
 - If the project has no `dev` script, suggest adding one (e.g. using `tsx`, `ts-node-dev`, or `node --watch`) so `docker compose up --watch` is useful.
 
 ### When Completed
 
-1. Summarize what was created or updated (Dockerfile, .dockerignore, docker-compose.yml, and any script changes).
-2. Tell the user how to build and run: `docker compose build`, then `docker compose up --watch` for local development.
-3. Mention that editing files under the watched path will sync and restart the service, and changing `package.json` will trigger a rebuild.
-4. Optionally suggest adding a short "Docker" or "Local development" section to the README with these commands.
+1. Summarize what was created or updated (`Dockerfile`, `.dockerignore`, `docker-compose.yaml`, `docker-compose.local.yaml`, `Makefile`, and any script changes).
+2. Tell the user how to run the built stack with `make up`, inspect it with `make logs`, and stop it with `make down`.
+3. Tell the user how to run the watch-mode stack with `make up-local`, inspect it with `make logs-local`, and stop it with `make down-local`.
+4. Mention that editing files under the watched path will sync and restart the service, and changing `package.json` or the lockfile will trigger a rebuild.
+5. Optionally suggest adding a short "Docker" or "Local development" section to the README with these commands.
 
 ---
 

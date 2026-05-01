@@ -1,0 +1,20 @@
+{
+  "targets": ["claude", "codex"],
+  "agents": [
+    "local-dev",
+    "docs",
+    "cicd",
+    "observability",
+    "publishing",
+    "git-hooks",
+    "linting",
+    "logging",
+    "testing"
+  ],
+  "skills": ["github-health-check"],
+  "ballastVersion": "5.9.2",
+  "languages": ["typescript"],
+  "paths": {
+    "typescript": ["."]
+  }
+}

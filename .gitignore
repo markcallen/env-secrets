@@ -18,3 +18,4 @@ coverage-e2e/
 
 # files created during testing
 secrets.env
+.ballast/
