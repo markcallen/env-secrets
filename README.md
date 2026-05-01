@@ -101,9 +101,10 @@ env-secrets aws -s my-app-secrets -r us-east-1 -- node app.js
 - `-r, --region <region>` (optional): AWS region where the secret is stored. If not provided, uses `AWS_DEFAULT_REGION` environment variable
 - `-p, --profile <profile>` (optional): Local AWS profile to use. If not provided, uses `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables
 - `-o, --output <file>` (optional): Output secrets to a file instead of injecting into environment variables. File will be created with 0400 permissions and will not overwrite existing files
+- `--no-shell` (optional): Run the program directly without a shell wrapper. Disables shell expansion — use when you do not need `$VAR` interpolation in arguments
 - `-- <program-to-run>`: The program to run with the injected environment variables (only used when `-o` is not specified)
 
-For `aws secret` management subcommands (`create`, `update`, `append`, `remove`, `upsert`/`import`, `list`, `get`, `delete`), use:
+For `aws secret` management subcommands (`create`, `update`, `upsert`/`import`, `append`, `remove`, `list`, `get`, `value`, `delete`), use:
 
 - `-r, --region <region>` to target a specific region
 - `-p, --profile <profile>` to select credentials profile
@@ -111,8 +112,8 @@ For `aws secret` management subcommands (`create`, `update`, `append`, `remove`,
 
 These options are honored consistently on `aws secret` subcommands.
 
-`env-secrets aws -s` is for fetching/injecting secret values into a child process.  
-`env-secrets aws secret ...` is for lifecycle management commands (`create`, `update`, `append`, `remove`, `upsert`/`import`, `list`, `get`, `delete`).
+`env-secrets aws -s` is for fetching/injecting secret values into a child process. Use `--no-shell` to run the program directly without a shell wrapper (disables shell expansion).  
+`env-secrets aws secret ...` is for lifecycle management commands (`create`, `update`, `upsert`/`import`, `append`, `remove`, `list`, `get`, `value`, `delete`).
 
 #### Examples
 
@@ -260,6 +261,19 @@ env-secrets aws secret append -n app/dev --key JIRA_EMAIL_TOKEN -v blah --output
 
 # Remove one or more keys
 env-secrets aws secret remove -n app/dev --key API_KEY --key OLD_TOKEN --output json
+```
+
+13. **View the values of a secret:**
+
+```bash
+# Table output — values masked as **** by default
+env-secrets aws secret value -n app/dev -r us-east-1
+
+# Reveal actual values (warning printed to stderr)
+env-secrets aws secret value -n app/dev -r us-east-1 --reveal
+
+# JSON output — full values, suitable for scripting (warns if stdout is a terminal)
+env-secrets aws secret value -n app/dev -r us-east-1 --output json
 ```
 
 ## Security Considerations
