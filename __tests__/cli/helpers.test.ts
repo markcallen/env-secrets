@@ -11,6 +11,7 @@ import {
   readStdin,
   renderTable,
   resolveAwsScope,
+  resolveOutputFormat,
   resolveSecretValue
 } from '../../src/cli/helpers';
 
@@ -212,6 +213,40 @@ describe('cli/helpers', () => {
     expect(resolveAwsScope({}, command)).toEqual({
       profile: 'global-profile',
       region: 'us-west-2'
+    });
+  });
+
+  describe('resolveOutputFormat', () => {
+    it('uses explicit local output option', () => {
+      expect(resolveOutputFormat({ output: 'json' })).toBe('json');
+      expect(resolveOutputFormat({ output: 'table' })).toBe('table');
+    });
+
+    it('throws for invalid local output option', () => {
+      expect(() => resolveOutputFormat({ output: 'xml' })).toThrow(
+        'Invalid output format'
+      );
+    });
+
+    it('inherits json or table from global options', () => {
+      const jsonCmd = { optsWithGlobals: () => ({ output: 'json' }) };
+      const tableCmd = { optsWithGlobals: () => ({ output: 'table' }) };
+      expect(resolveOutputFormat({}, jsonCmd)).toBe('json');
+      expect(resolveOutputFormat({}, tableCmd)).toBe('table');
+    });
+
+    it('ignores a file path in global output and defaults to table', () => {
+      const command = { optsWithGlobals: () => ({ output: 'secrets.env' }) };
+      expect(resolveOutputFormat({}, command)).toBe('table');
+    });
+
+    it('defaults to table when no options are provided', () => {
+      expect(resolveOutputFormat({})).toBe('table');
+    });
+
+    it('prefers local option over global option', () => {
+      const command = { optsWithGlobals: () => ({ output: 'json' }) };
+      expect(resolveOutputFormat({ output: 'table' }, command)).toBe('table');
     });
   });
 });

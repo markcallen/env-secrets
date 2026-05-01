@@ -218,6 +218,22 @@ export const parseEnvSecretsFile = async (
   return parseEnvSecrets(content);
 };
 
+export const resolveOutputFormat = (
+  options: { output?: string },
+  command?: CommandLikeWithGlobalOpts
+): OutputFormat => {
+  if (options.output) {
+    return asOutputFormat(options.output);
+  }
+
+  const globalOutput = command?.optsWithGlobals?.()?.output;
+  if (globalOutput === 'json' || globalOutput === 'table') {
+    return globalOutput;
+  }
+
+  return 'table';
+};
+
 export const resolveAwsScope = (
   options: AwsScopeOptions,
   command?: CommandLikeWithGlobalOpts

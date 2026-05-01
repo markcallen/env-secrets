@@ -23,6 +23,7 @@ import {
   printData,
   parseRecoveryDays,
   resolveAwsScope,
+  resolveOutputFormat,
   resolveSecretValue
 } from './cli/helpers';
 import { objectToExport } from './vaults/utils';
@@ -208,12 +209,7 @@ secretCommand
   .action(async (options, command) => {
     try {
       const { profile, region } = resolveAwsScope(options, command);
-      const globalOptions = command.optsWithGlobals();
-      const output =
-        options.output ??
-        (typeof globalOptions.output === 'string'
-          ? globalOptions.output
-          : 'table');
+      const output = resolveOutputFormat(options, command);
       const value = await resolveSecretValue(
         options.value,
         options.valueStdin,
@@ -265,12 +261,7 @@ secretCommand
   .action(async (options, command) => {
     try {
       const { profile, region } = resolveAwsScope(options, command);
-      const globalOptions = command.optsWithGlobals();
-      const output =
-        options.output ??
-        (typeof globalOptions.output === 'string'
-          ? globalOptions.output
-          : 'table');
+      const output = resolveOutputFormat(options, command);
       const value = await resolveSecretValue(
         options.value,
         options.valueStdin,
@@ -320,12 +311,7 @@ secretCommand
   .action(async (options, command) => {
     try {
       const { profile, region } = resolveAwsScope(options, command);
-      const globalOptions = command.optsWithGlobals();
-      const output =
-        options.output ??
-        (typeof globalOptions.output === 'string'
-          ? globalOptions.output
-          : 'table');
+      const output = resolveOutputFormat(options, command);
       const parsed = await parseEnvSecretsFile(options.file);
 
       if (parsed.entries.length === 0) {
@@ -454,12 +440,7 @@ secretCommand
   .action(async (options, command) => {
     try {
       const { profile, region } = resolveAwsScope(options, command);
-      const globalOptions = command.optsWithGlobals();
-      const output =
-        options.output ??
-        (typeof globalOptions.output === 'string'
-          ? globalOptions.output
-          : 'table');
+      const output = resolveOutputFormat(options, command);
       const value = await resolveSecretValue(
         options.value,
         options.valueStdin,
@@ -519,12 +500,7 @@ secretCommand
   .action(async (options, command) => {
     try {
       const { profile, region } = resolveAwsScope(options, command);
-      const globalOptions = command.optsWithGlobals();
-      const output =
-        options.output ??
-        (typeof globalOptions.output === 'string'
-          ? globalOptions.output
-          : 'table');
+      const output = resolveOutputFormat(options, command);
       const keys = options.key as string[];
       const current = await getSecretString({
         name: options.name,
@@ -590,12 +566,7 @@ secretCommand
   .action(async (options, command) => {
     try {
       const { profile, region } = resolveAwsScope(options, command);
-      const globalOptions = command.optsWithGlobals();
-      const output =
-        options.output ??
-        (typeof globalOptions.output === 'string'
-          ? globalOptions.output
-          : 'table');
+      const output = resolveOutputFormat(options, command);
       const result = await listSecrets({
         prefix: options.prefix,
         tags: options.tag,
@@ -632,12 +603,7 @@ secretCommand
   .action(async (options, command) => {
     try {
       const { profile, region } = resolveAwsScope(options, command);
-      const globalOptions = command.optsWithGlobals();
-      const output =
-        options.output ??
-        (typeof globalOptions.output === 'string'
-          ? globalOptions.output
-          : 'table');
+      const output = resolveOutputFormat(options, command);
       const result = await getSecretMetadata({
         name: options.name,
         profile,
@@ -673,6 +639,94 @@ secretCommand
   });
 
 secretCommand
+  .command('value')
+  .description('get the values of a secret')
+  .requiredOption('-n, --name <name>', 'secret name')
+  .option(
+    '--reveal',
+    'reveal secret values in table output (values are masked by default)',
+    false
+  )
+  .option('-p, --profile <profile>', 'profile to use')
+  .option('-r, --region <region>', 'region to use')
+  .option('--output <format>', 'output format: json|table')
+  .action(async (options, command) => {
+    try {
+      const { profile, region } = resolveAwsScope(options, command);
+      const output = resolveOutputFormat(options, command);
+
+      let secretString: string;
+      try {
+        secretString = await getSecretString({
+          name: options.name,
+          profile,
+          region
+        });
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        if (msg.includes('cannot be edited with append/remove')) {
+          throw new Error(
+            `Secret "${options.name}" is stored as binary and cannot be displayed as text.`
+          );
+        }
+        throw error;
+      }
+
+      let jsonEntries: Array<{ key: string; value: unknown }>;
+      try {
+        const parsed = JSON.parse(secretString) as unknown;
+        if (parsed && !Array.isArray(parsed) && typeof parsed === 'object') {
+          jsonEntries = Object.entries(parsed as Record<string, unknown>).map(
+            ([key, value]) => ({ key, value })
+          );
+        } else {
+          jsonEntries = [{ key: options.name, value: secretString }];
+        }
+      } catch {
+        jsonEntries = [{ key: options.name, value: secretString }];
+      }
+
+      if (output === 'json') {
+        if (process.stdout.isTTY) {
+          // eslint-disable-next-line no-console
+          console.error('Warning: displaying sensitive secret values.');
+        }
+        const result = Object.fromEntries(
+          jsonEntries.map(({ key, value }) => [key, value])
+        );
+        // eslint-disable-next-line no-console
+        console.log(JSON.stringify(result, null, 2));
+        return;
+      }
+
+      if (options.reveal) {
+        // eslint-disable-next-line no-console
+        console.error('Warning: displaying sensitive secret values.');
+      }
+
+      const rows = jsonEntries.map(({ key, value }) => ({
+        key,
+        value: options.reveal
+          ? typeof value === 'string'
+            ? value
+            : JSON.stringify(value)
+          : '****'
+      }));
+
+      printData(
+        asOutputFormat(output),
+        [
+          { key: 'key', label: 'Key' },
+          { key: 'value', label: 'Value' }
+        ],
+        rows
+      );
+    } catch (error: unknown) {
+      exitWithError(error);
+    }
+  });
+
+secretCommand
   .command('delete')
   .description('delete a secret in AWS Secrets Manager')
   .requiredOption('-n, --name <name>', 'secret name')
@@ -693,12 +747,7 @@ secretCommand
   .action(async (options, command) => {
     try {
       const { profile, region } = resolveAwsScope(options, command);
-      const globalOptions = command.optsWithGlobals();
-      const output =
-        options.output ??
-        (typeof globalOptions.output === 'string'
-          ? globalOptions.output
-          : 'table');
+      const output = resolveOutputFormat(options, command);
       if (!options.yes) {
         throw new Error('Delete requires --yes confirmation.');
       }

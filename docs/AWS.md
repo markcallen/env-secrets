@@ -153,11 +153,12 @@ In addition to injecting variables into a process, `env-secrets` can manage AWS 
 
 - `env-secrets aws secret create`
 - `env-secrets aws secret update`
+- `env-secrets aws secret upsert` (alias: `import`)
 - `env-secrets aws secret append`
 - `env-secrets aws secret remove`
-- `env-secrets aws secret upsert` (alias: `import`)
 - `env-secrets aws secret list`
 - `env-secrets aws secret get`
+- `env-secrets aws secret value`
 - `env-secrets aws secret delete`
 
 `aws secret` subcommands consistently honor `--region`, `--profile`, and `--output`.
@@ -165,8 +166,8 @@ Use these options directly with each subcommand.
 
 ### `aws -s` vs `aws secret ...`
 
-- `env-secrets aws -s <secret-name> -- <command>`: retrieves a secret value and injects it into the environment for the spawned process (or use `-o <file>` to write exports to a file).
-- `env-secrets aws secret ...`: management commands only (`create`, `update`, `append`, `remove`, `upsert/import`, `list`, `get`, `delete`).
+- `env-secrets aws -s <secret-name> -- <command>`: retrieves a secret value and injects it into the environment for the spawned process (or use `-o <file>` to write exports to a file). Use `--no-shell` to run the program directly without a shell wrapper (disables shell expansion).
+- `env-secrets aws secret ...`: management commands only (`create`, `update`, `upsert/import`, `append`, `remove`, `list`, `get`, `value`, `delete`).
 
 Example:
 
@@ -206,17 +207,23 @@ source secrets.env
    - dotenv-style input is converted (`KEY=value` -> `{"KEY":"value"}`)
    - non-object/scalar input is wrapped (`super-secret-value` -> `{"value":"super-secret-value"}`)
 
+   Optional flags: `-d/--description`, `-k/--kms-key-id`, `-t/--tag key=value` (repeatable).
+
 2. **Create from stdin (recommended for sensitive values):**
 
    ```bash
    echo -n 'super-secret-value' | env-secrets aws secret create -n my-app/dev/raw --value-stdin -r us-east-1
    ```
 
+   `create` and `update` accept `--value`, `--value-stdin`, or `--file` — use only one.
+
 3. **Update an existing secret value:**
 
    ```bash
    env-secrets aws secret update -n my-app/dev/api -v '{"API_KEY":"rotated"}' -r us-east-1
    ```
+
+   Optional flags: `-d/--description`, `-k/--kms-key-id`. Accepts `--value-stdin` or `--file` instead of `-v`.
 
 4. **Upsert from an env file into one JSON secret (`export KEY=value` or `KEY=value`):**
 
@@ -232,47 +239,69 @@ source secrets.env
    { "API_KEY": "abc123", "DATABASE_URL": "postgres://..." }
    ```
 
+   Optional flags: `-d/--description`, `-k/--kms-key-id`, `-t/--tag key=value` (repeatable, applies on create only).
+
 5. **Append/remove keys in an existing JSON secret:**
 
    ```bash
+   # Append a key (accepts --value-stdin or --file instead of -v)
    env-secrets aws secret append -n my-app/dev --key JIRA_EMAIL_TOKEN -v blah -r us-east-1
-   env-secrets aws secret remove -n my-app/dev --key OLD_TOKEN -r us-east-1
+
+   # Remove one or more keys
+   env-secrets aws secret remove -n my-app/dev --key OLD_TOKEN --key UNUSED_KEY -r us-east-1
    ```
 
-6. **List secrets by prefix:**
+6. **List secrets by prefix or tag:**
 
    ```bash
    env-secrets aws secret list --prefix my-app/dev -r us-east-1 --output table
-   ```
 
-   Multi-region validation example:
+   # Filter by tag
+   env-secrets aws secret list -t env=production -t team=platform -r us-east-1
 
-   ```bash
+   # Multi-region comparison
    env-secrets aws secret list --prefix my-app/dev -r us-west-2 --output json
    env-secrets aws secret list --prefix my-app/dev -r us-east-1 --output json
    ```
 
-7. **Get metadata and version info (without printing secret value):**
+7. **Get metadata and version info (without printing secret values):**
 
    ```bash
    env-secrets aws secret get -n my-app/dev/api -r us-east-1 --output json
    ```
 
-8. **Delete with explicit confirmation:**
+8. **Get the values of a secret:**
 
    ```bash
+   # Table output — values masked by default
+   env-secrets aws secret value -n my-app/dev/api -r us-east-1
+
+   # Reveal actual values (warning printed to stderr)
+   env-secrets aws secret value -n my-app/dev/api -r us-east-1 --reveal
+
+   # JSON output — always returns full values (warns on TTY)
+   env-secrets aws secret value -n my-app/dev/api -r us-east-1 --output json
+   ```
+
+9. **Delete with explicit confirmation:**
+
+   ```bash
+   # With a recovery window (7–30 days)
    env-secrets aws secret delete -n my-app/dev/raw --recovery-days 7 --yes -r us-east-1
+
+   # Permanent delete with no recovery window
+   env-secrets aws secret delete -n my-app/dev/raw --force-delete-without-recovery --yes -r us-east-1
    ```
 
 ### Secret Management Safety Notes
 
-- `delete` requires `--yes`.
-- `create`/`update` accept `--value`, `--value-stdin`, or `--file` (use only one).
+- `delete` requires `--yes`. Use either `--recovery-days <7-30>` or `--force-delete-without-recovery`, not both.
+- `create`, `update`, and `append` accept `--value`, `--value-stdin`, or `--file` (use only one).
 - `create` always stores `SecretString` as a JSON object.
 - `append` and `remove` require the secret value to be a JSON object.
 - `upsert/import --file --name` parses `export KEY=value` and `KEY=value`, stores them as one JSON secret object, ignores blank lines/comments, and reports `created`, `updated`, `skipped`, and `failed`.
 - Use `--value-stdin` to avoid shell history leakage for sensitive values.
-- Use either `--recovery-days` or `--force-delete-without-recovery` for delete operations.
+- `value` masks secret values as `****` in table output by default. Use `--reveal` to show them (prints a warning to stderr). JSON output always returns full values and warns when stdout is a terminal.
 
 ## Examples
 
