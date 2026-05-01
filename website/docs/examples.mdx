@@ -917,6 +917,39 @@ env-secrets aws -s myapp/config -r us-east-1 -o secrets.env
 # Error: File secrets.env already exists and will not be overwritten
 ```
 
+## Secret Value Examples
+
+Use `env-secrets aws secret value` to inspect what is stored in a secret.
+
+### View values (masked by default)
+
+Table output masks all values as `****` by default so you can confirm keys exist without exposing sensitive data:
+
+```bash
+env-secrets aws secret value -n my-app/prod -r us-east-1
+```
+
+### Reveal actual values
+
+Pass `--reveal` to display the real values. A warning is printed to stderr:
+
+```bash
+env-secrets aws secret value -n my-app/prod -r us-east-1 --reveal
+# Warning: displaying sensitive secret values.
+```
+
+### JSON output
+
+`--output json` always returns full values. When stdout is a terminal a warning is printed to stderr so you are aware values are visible:
+
+```bash
+# Pipe to jq — no warning since stdout is not a TTY
+env-secrets aws secret value -n my-app/prod -r us-east-1 --output json | jq .
+
+# Interactive terminal — shows warning then JSON
+env-secrets aws secret value -n my-app/prod -r us-east-1 --output json
+```
+
 ## Debug Examples
 
 ### Debug Mode

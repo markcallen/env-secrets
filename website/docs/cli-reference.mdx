@@ -43,7 +43,8 @@ Use `env-secrets aws -s <secret-name>` together with either `-- <program-to-run>
 - `remove` - Remove one or more keys from an existing JSON secret
 - `upsert` (`import`) - Create or update one JSON secret from an env file
 - `list` - List secrets
-- `get` - Get secret metadata/version info
+- `get` - Get secret metadata/version info (does not print secret values)
+- `value` - Get the values of a secret
 - `delete` - Delete a secret
 
 ### Shared Options
@@ -83,6 +84,12 @@ Use `env-secrets aws -s <secret-name>` together with either `-- <program-to-run>
   - `-t, --tag <key=value...>`
 - `get`
   - `-n, --name <name>` (required)
+- `value`
+  - `-n, --name <name>` (required)
+  - `--reveal` — show actual values in table output (default: masked as `****`)
+  - `--output <format>` — `json` or `table` (JSON always returns full values; warns on TTY)
+  - `-p, --profile <profile>`
+  - `-r, --region <region>`
 - `delete`
   - `-n, --name <name>` (required)
   - `-y, --yes` (required for delete)
@@ -228,8 +235,20 @@ env-secrets aws secret list --prefix app/dev --output table
 # Get metadata (does not print secret value)
 env-secrets aws secret get -n app/dev/api --output json
 
-# Delete with confirmation
+# Get secret values (masked by default)
+env-secrets aws secret value -n app/dev/api
+
+# Reveal actual values (warning printed to stderr)
+env-secrets aws secret value -n app/dev/api --reveal
+
+# Get values as JSON (always returns full values; warns when stdout is a terminal)
+env-secrets aws secret value -n app/dev/api --output json
+
+# Delete with confirmation (recovery window)
 env-secrets aws secret delete -n app/dev/raw --recovery-days 7 --yes
+
+# Delete permanently (no recovery)
+env-secrets aws secret delete -n app/dev/raw --force-delete-without-recovery --yes
 ```
 
 ## Environment Variable Behavior
