@@ -23,6 +23,7 @@ import {
   printData,
   parseRecoveryDays,
   resolveAwsScope,
+  resolveOutputFormat,
   resolveSecretValue
 } from './cli/helpers';
 import { objectToExport } from './vaults/utils';
@@ -208,12 +209,7 @@ secretCommand
   .action(async (options, command) => {
     try {
       const { profile, region } = resolveAwsScope(options, command);
-      const globalOptions = command.optsWithGlobals();
-      const output =
-        options.output ??
-        (typeof globalOptions.output === 'string'
-          ? globalOptions.output
-          : 'table');
+      const output = resolveOutputFormat(options, command);
       const value = await resolveSecretValue(
         options.value,
         options.valueStdin,
@@ -265,12 +261,7 @@ secretCommand
   .action(async (options, command) => {
     try {
       const { profile, region } = resolveAwsScope(options, command);
-      const globalOptions = command.optsWithGlobals();
-      const output =
-        options.output ??
-        (typeof globalOptions.output === 'string'
-          ? globalOptions.output
-          : 'table');
+      const output = resolveOutputFormat(options, command);
       const value = await resolveSecretValue(
         options.value,
         options.valueStdin,
@@ -320,12 +311,7 @@ secretCommand
   .action(async (options, command) => {
     try {
       const { profile, region } = resolveAwsScope(options, command);
-      const globalOptions = command.optsWithGlobals();
-      const output =
-        options.output ??
-        (typeof globalOptions.output === 'string'
-          ? globalOptions.output
-          : 'table');
+      const output = resolveOutputFormat(options, command);
       const parsed = await parseEnvSecretsFile(options.file);
 
       if (parsed.entries.length === 0) {
@@ -454,12 +440,7 @@ secretCommand
   .action(async (options, command) => {
     try {
       const { profile, region } = resolveAwsScope(options, command);
-      const globalOptions = command.optsWithGlobals();
-      const output =
-        options.output ??
-        (typeof globalOptions.output === 'string'
-          ? globalOptions.output
-          : 'table');
+      const output = resolveOutputFormat(options, command);
       const value = await resolveSecretValue(
         options.value,
         options.valueStdin,
@@ -519,12 +500,7 @@ secretCommand
   .action(async (options, command) => {
     try {
       const { profile, region } = resolveAwsScope(options, command);
-      const globalOptions = command.optsWithGlobals();
-      const output =
-        options.output ??
-        (typeof globalOptions.output === 'string'
-          ? globalOptions.output
-          : 'table');
+      const output = resolveOutputFormat(options, command);
       const keys = options.key as string[];
       const current = await getSecretString({
         name: options.name,
@@ -590,12 +566,7 @@ secretCommand
   .action(async (options, command) => {
     try {
       const { profile, region } = resolveAwsScope(options, command);
-      const globalOptions = command.optsWithGlobals();
-      const output =
-        options.output ??
-        (typeof globalOptions.output === 'string'
-          ? globalOptions.output
-          : 'table');
+      const output = resolveOutputFormat(options, command);
       const result = await listSecrets({
         prefix: options.prefix,
         tags: options.tag,
@@ -632,12 +603,7 @@ secretCommand
   .action(async (options, command) => {
     try {
       const { profile, region } = resolveAwsScope(options, command);
-      const globalOptions = command.optsWithGlobals();
-      const output =
-        options.output ??
-        (typeof globalOptions.output === 'string'
-          ? globalOptions.output
-          : 'table');
+      const output = resolveOutputFormat(options, command);
       const result = await getSecretMetadata({
         name: options.name,
         profile,
@@ -687,12 +653,7 @@ secretCommand
   .action(async (options, command) => {
     try {
       const { profile, region } = resolveAwsScope(options, command);
-      const globalOptions = command.optsWithGlobals();
-      const output =
-        options.output ??
-        (typeof globalOptions.output === 'string'
-          ? globalOptions.output
-          : 'table');
+      const output = resolveOutputFormat(options, command);
 
       let secretString: string;
       try {
@@ -786,12 +747,7 @@ secretCommand
   .action(async (options, command) => {
     try {
       const { profile, region } = resolveAwsScope(options, command);
-      const globalOptions = command.optsWithGlobals();
-      const output =
-        options.output ??
-        (typeof globalOptions.output === 'string'
-          ? globalOptions.output
-          : 'table');
+      const output = resolveOutputFormat(options, command);
       if (!options.yes) {
         throw new Error('Delete requires --yes confirmation.');
       }
