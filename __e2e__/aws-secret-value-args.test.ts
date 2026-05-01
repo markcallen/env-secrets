@@ -33,7 +33,7 @@ describe('AWS Secret Value CLI Args', () => {
     expect(valueResult.stdout).not.toContain('super-secret');
     expect(valueResult.stdout).not.toContain('abc123');
 
-    await cliWithEnv(
+    const deleteResult1 = await cliWithEnv(
       [
         'aws',
         'secret',
@@ -45,6 +45,7 @@ describe('AWS Secret Value CLI Args', () => {
       ],
       getLocalStackEnv()
     );
+    expect(deleteResult1.code).toBe(0);
     cleanupTempFile(tempFile);
   });
 
@@ -75,7 +76,7 @@ describe('AWS Secret Value CLI Args', () => {
       'Warning: displaying sensitive secret values.'
     );
 
-    await cliWithEnv(
+    const deleteResult2 = await cliWithEnv(
       [
         'aws',
         'secret',
@@ -87,6 +88,7 @@ describe('AWS Secret Value CLI Args', () => {
       ],
       getLocalStackEnv()
     );
+    expect(deleteResult2.code).toBe(0);
     cleanupTempFile(tempFile);
   });
 
@@ -113,7 +115,7 @@ describe('AWS Secret Value CLI Args', () => {
     expect(parsed.DB_PASSWORD).toBe('super-secret');
     expect(parsed.API_KEY).toBe('abc123');
 
-    await cliWithEnv(
+    const deleteResult3 = await cliWithEnv(
       [
         'aws',
         'secret',
@@ -125,6 +127,7 @@ describe('AWS Secret Value CLI Args', () => {
       ],
       getLocalStackEnv()
     );
+    expect(deleteResult3.code).toBe(0);
     cleanupTempFile(tempFile);
   });
 

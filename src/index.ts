@@ -694,29 +694,44 @@ secretCommand
           ? globalOptions.output
           : 'table');
 
-      const secretString = await getSecretString({
-        name: options.name,
-        profile,
-        region
-      });
+      let secretString: string;
+      try {
+        secretString = await getSecretString({
+          name: options.name,
+          profile,
+          region
+        });
+      } catch (error: unknown) {
+        const msg = error instanceof Error ? error.message : String(error);
+        if (msg.includes('cannot be edited with append/remove')) {
+          throw new Error(
+            `Secret "${options.name}" is stored as binary and cannot be displayed as text.`
+          );
+        }
+        throw error;
+      }
 
-      let entries: Array<{ key: string; value: string }>;
+      let jsonEntries: Array<{ key: string; value: unknown }>;
       try {
         const parsed = JSON.parse(secretString) as unknown;
         if (parsed && !Array.isArray(parsed) && typeof parsed === 'object') {
-          entries = Object.entries(parsed as Record<string, unknown>).map(
-            ([key, value]) => ({ key, value: String(value) })
+          jsonEntries = Object.entries(parsed as Record<string, unknown>).map(
+            ([key, value]) => ({ key, value })
           );
         } else {
-          entries = [{ key: options.name, value: secretString }];
+          jsonEntries = [{ key: options.name, value: secretString }];
         }
       } catch {
-        entries = [{ key: options.name, value: secretString }];
+        jsonEntries = [{ key: options.name, value: secretString }];
       }
 
       if (output === 'json') {
+        if (process.stdout.isTTY) {
+          // eslint-disable-next-line no-console
+          console.error('Warning: displaying sensitive secret values.');
+        }
         const result = Object.fromEntries(
-          entries.map(({ key, value }) => [key, value])
+          jsonEntries.map(({ key, value }) => [key, value])
         );
         // eslint-disable-next-line no-console
         console.log(JSON.stringify(result, null, 2));
@@ -728,9 +743,13 @@ secretCommand
         console.error('Warning: displaying sensitive secret values.');
       }
 
-      const rows = entries.map(({ key, value }) => ({
+      const rows = jsonEntries.map(({ key, value }) => ({
         key,
-        value: options.reveal ? value : '****'
+        value: options.reveal
+          ? typeof value === 'string'
+            ? value
+            : JSON.stringify(value)
+          : '****'
       }));
 
       printData(
