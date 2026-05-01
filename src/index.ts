@@ -673,6 +673,80 @@ secretCommand
   });
 
 secretCommand
+  .command('value')
+  .description('get the values of a secret')
+  .requiredOption('-n, --name <name>', 'secret name')
+  .option(
+    '--reveal',
+    'reveal secret values in table output (values are masked by default)',
+    false
+  )
+  .option('-p, --profile <profile>', 'profile to use')
+  .option('-r, --region <region>', 'region to use')
+  .option('--output <format>', 'output format: json|table')
+  .action(async (options, command) => {
+    try {
+      const { profile, region } = resolveAwsScope(options, command);
+      const globalOptions = command.optsWithGlobals();
+      const output =
+        options.output ??
+        (typeof globalOptions.output === 'string'
+          ? globalOptions.output
+          : 'table');
+
+      const secretString = await getSecretString({
+        name: options.name,
+        profile,
+        region
+      });
+
+      let entries: Array<{ key: string; value: string }>;
+      try {
+        const parsed = JSON.parse(secretString) as unknown;
+        if (parsed && !Array.isArray(parsed) && typeof parsed === 'object') {
+          entries = Object.entries(parsed as Record<string, unknown>).map(
+            ([key, value]) => ({ key, value: String(value) })
+          );
+        } else {
+          entries = [{ key: options.name, value: secretString }];
+        }
+      } catch {
+        entries = [{ key: options.name, value: secretString }];
+      }
+
+      if (output === 'json') {
+        const result = Object.fromEntries(
+          entries.map(({ key, value }) => [key, value])
+        );
+        // eslint-disable-next-line no-console
+        console.log(JSON.stringify(result, null, 2));
+        return;
+      }
+
+      if (options.reveal) {
+        // eslint-disable-next-line no-console
+        console.error('Warning: displaying sensitive secret values.');
+      }
+
+      const rows = entries.map(({ key, value }) => ({
+        key,
+        value: options.reveal ? value : '****'
+      }));
+
+      printData(
+        asOutputFormat(output),
+        [
+          { key: 'key', label: 'Key' },
+          { key: 'value', label: 'Value' }
+        ],
+        rows
+      );
+    } catch (error: unknown) {
+      exitWithError(error);
+    }
+  });
+
+secretCommand
   .command('delete')
   .description('delete a secret in AWS Secrets Manager')
   .requiredOption('-n, --name <name>', 'secret name')
