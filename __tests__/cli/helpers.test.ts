@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 
 import {
+  applyKeyRemovals,
   asOutputFormat,
   parseEnvSecrets,
   parseRecoveryDays,
@@ -247,6 +248,53 @@ describe('cli/helpers', () => {
     it('prefers local option over global option', () => {
       const command = { optsWithGlobals: () => ({ output: 'json' }) };
       expect(resolveOutputFormat({ output: 'table' }, command)).toBe('table');
+    });
+  });
+
+  describe('applyKeyRemovals', () => {
+    it('removes an existing key and returns it in removed list', () => {
+      const payload = { API_KEY: 'abc', DB_URL: 'postgres://...' };
+      const { removed, missing } = applyKeyRemovals('my-secret', payload, [
+        'API_KEY'
+      ]);
+      expect(removed).toEqual(['API_KEY']);
+      expect(missing).toEqual([]);
+      expect(payload).toEqual({ DB_URL: 'postgres://...' });
+    });
+
+    it('tracks missing keys without failing when at least one key is removed', () => {
+      const payload = { API_KEY: 'abc', DB_URL: 'postgres://...' };
+      const { removed, missing } = applyKeyRemovals('my-secret', payload, [
+        'API_KEY',
+        'GHOST_KEY'
+      ]);
+      expect(removed).toEqual(['API_KEY']);
+      expect(missing).toEqual(['GHOST_KEY']);
+    });
+
+    it('throws when none of the requested keys exist', () => {
+      const payload = { API_KEY: 'abc' };
+      expect(() =>
+        applyKeyRemovals('my-secret', payload, ['GHOST_KEY'])
+      ).toThrow('None of the requested keys exist in secret "my-secret".');
+    });
+
+    it('throws when removing all keys would leave an empty object', () => {
+      const payload = { ONLY_KEY: 'value' };
+      expect(() =>
+        applyKeyRemovals('my-secret', payload, ['ONLY_KEY'])
+      ).toThrow(
+        'Cannot remove all keys from secret "my-secret" — it would leave an empty object.'
+      );
+    });
+
+    it('throws last-key guard even when multiple keys are provided but all present', () => {
+      const payload = { K1: 'v1', K2: 'v2' };
+      expect(() =>
+        applyKeyRemovals('my-secret', payload, ['K1', 'K2'])
+      ).toThrow(
+        'Cannot remove all keys from secret "my-secret" — it would leave an empty object.'
+      );
     });
   });
 });

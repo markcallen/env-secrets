@@ -103,6 +103,204 @@ describe('AWS Secret Mutation CLI Args', () => {
     cleanupTempFile(tempFile);
   });
 
+  test('should error when appending to a non-existent secret', async () => {
+    const result = await cliWithEnv(
+      [
+        'aws',
+        'secret',
+        'append',
+        '-n',
+        `no-such-secret-${Date.now()}`,
+        '--key',
+        'NEW_KEY',
+        '-v',
+        'value'
+      ],
+      getLocalStackEnv()
+    );
+    expect(result.code).not.toBe(0);
+    expect(result.stderr).toMatch(
+      /ResourceNotFoundException|not found|does not exist/i
+    );
+  });
+
+  test('should error when removing a key that does not exist in the secret', async () => {
+    const secretName = `e2e-remove-missing-key-${Date.now()}`;
+    const tempFile = path.join(
+      os.tmpdir(),
+      `env-secrets-missing-key-${Date.now()}.env`
+    );
+    fs.writeFileSync(tempFile, 'API_KEY=abc');
+    const createResult = await cliWithEnv(
+      ['aws', 'secret', 'upsert', '--file', tempFile, '--name', secretName],
+      getLocalStackEnv()
+    );
+    expect(createResult.code).toBe(0);
+    cleanupTempFile(tempFile);
+
+    const removeResult = await cliWithEnv(
+      ['aws', 'secret', 'remove', '-n', secretName, '--key', 'GHOST_KEY'],
+      getLocalStackEnv()
+    );
+    expect(removeResult.code).not.toBe(0);
+    expect(removeResult.stderr).toContain('None of the requested keys exist');
+
+    await cliWithEnv(
+      [
+        'aws',
+        'secret',
+        'delete',
+        '-n',
+        secretName,
+        '--force-delete-without-recovery',
+        '--yes'
+      ],
+      getLocalStackEnv()
+    );
+  });
+
+  test('should error when removing the last key in a secret', async () => {
+    const secretName = `e2e-remove-last-key-${Date.now()}`;
+    const tempFile = path.join(
+      os.tmpdir(),
+      `env-secrets-last-key-${Date.now()}.env`
+    );
+    fs.writeFileSync(tempFile, 'ONLY_KEY=only-value');
+    const createResult = await cliWithEnv(
+      ['aws', 'secret', 'upsert', '--file', tempFile, '--name', secretName],
+      getLocalStackEnv()
+    );
+    expect(createResult.code).toBe(0);
+    cleanupTempFile(tempFile);
+
+    const removeResult = await cliWithEnv(
+      ['aws', 'secret', 'remove', '-n', secretName, '--key', 'ONLY_KEY'],
+      getLocalStackEnv()
+    );
+    expect(removeResult.code).not.toBe(0);
+    expect(removeResult.stderr).toContain('Cannot remove all keys');
+
+    await cliWithEnv(
+      [
+        'aws',
+        'secret',
+        'delete',
+        '-n',
+        secretName,
+        '--force-delete-without-recovery',
+        '--yes'
+      ],
+      getLocalStackEnv()
+    );
+  });
+
+  test('should overwrite an existing key with append and preserve other keys', async () => {
+    const secretName = `e2e-append-overwrite-${Date.now()}`;
+    const tempFile = path.join(
+      os.tmpdir(),
+      `env-secrets-append-overwrite-${Date.now()}.env`
+    );
+    fs.writeFileSync(tempFile, 'API_KEY=old-value\nDB_URL=postgres-url');
+    const createResult = await cliWithEnv(
+      ['aws', 'secret', 'upsert', '--file', tempFile, '--name', secretName],
+      getLocalStackEnv()
+    );
+    expect(createResult.code).toBe(0);
+    cleanupTempFile(tempFile);
+
+    const appendResult = await cliWithEnv(
+      [
+        'aws',
+        'secret',
+        'append',
+        '-n',
+        secretName,
+        '--key',
+        'API_KEY',
+        '-v',
+        'new-value',
+        '--output',
+        'json'
+      ],
+      getLocalStackEnv()
+    );
+    expect(appendResult.code).toBe(0);
+
+    const afterAppend = await execAwslocalCommand(
+      `awslocal secretsmanager get-secret-value --secret-id "${secretName}" --region us-east-1 --query SecretString --output text`,
+      getLocalStackEnv()
+    );
+    expect(JSON.parse(afterAppend.stdout.trim())).toEqual({
+      API_KEY: 'new-value',
+      DB_URL: 'postgres-url'
+    });
+
+    await cliWithEnv(
+      [
+        'aws',
+        'secret',
+        'delete',
+        '-n',
+        secretName,
+        '--force-delete-without-recovery',
+        '--yes'
+      ],
+      getLocalStackEnv()
+    );
+  });
+
+  test('should partially remove keys and report missing ones', async () => {
+    const secretName = `e2e-remove-partial-${Date.now()}`;
+    const tempFile = path.join(
+      os.tmpdir(),
+      `env-secrets-partial-remove-${Date.now()}.env`
+    );
+    fs.writeFileSync(tempFile, 'REAL_KEY=value\nKEEP_KEY=keep');
+    const createResult = await cliWithEnv(
+      ['aws', 'secret', 'upsert', '--file', tempFile, '--name', secretName],
+      getLocalStackEnv()
+    );
+    expect(createResult.code).toBe(0);
+    cleanupTempFile(tempFile);
+
+    const removeResult = await cliWithEnv(
+      [
+        'aws',
+        'secret',
+        'remove',
+        '-n',
+        secretName,
+        '--key',
+        'REAL_KEY',
+        '--key',
+        'GHOST_KEY',
+        '--output',
+        'json'
+      ],
+      getLocalStackEnv()
+    );
+    expect(removeResult.code).toBe(0);
+    const output = JSON.parse(removeResult.stdout) as Array<{
+      removed: string;
+      missing: string;
+    }>;
+    expect(output[0].removed).toContain('REAL_KEY');
+    expect(output[0].missing).toContain('GHOST_KEY');
+
+    await cliWithEnv(
+      [
+        'aws',
+        'secret',
+        'delete',
+        '-n',
+        secretName,
+        '--force-delete-without-recovery',
+        '--yes'
+      ],
+      getLocalStackEnv()
+    );
+  });
+
   test('should upsert secrets from env file', async () => {
     const secretName = `e2e-upsert-${Date.now()}`;
     const tempFile = path.join(

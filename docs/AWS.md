@@ -241,15 +241,32 @@ source secrets.env
 
    Optional flags: `-d/--description`, `-k/--kms-key-id`, `-t/--tag key=value` (repeatable, applies on create only).
 
-5. **Append/remove keys in an existing JSON secret:**
+5. **Update or delete a single key in an existing JSON secret:**
+
+   Use `append` to update (or add) one key without touching the rest of the secret, and `remove` to delete one or more keys.
 
    ```bash
-   # Append a key (accepts --value-stdin or --file instead of -v)
-   env-secrets aws secret append -n my-app/dev --key JIRA_EMAIL_TOKEN -v blah -r us-east-1
+   # Update a single key (overwrites if it already exists; adds it if it does not)
+   env-secrets aws secret append -n my-app/dev --key API_KEY -v new-value -r us-east-1
 
-   # Remove one or more keys
+   # Accepts --value-stdin or --file instead of -v
+   env-secrets aws secret append -n my-app/dev --key API_KEY --value-stdin -r us-east-1
+
+   # Remove one key
+   env-secrets aws secret remove -n my-app/dev --key OLD_TOKEN -r us-east-1
+
+   # Remove multiple keys at once
    env-secrets aws secret remove -n my-app/dev --key OLD_TOKEN --key UNUSED_KEY -r us-east-1
    ```
+
+   **Error cases:**
+
+   | Situation                                                      | Behaviour                                                                                                        |
+   | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+   | Secret does not exist                                          | Error from AWS (`ResourceNotFoundException`)                                                                     |
+   | `remove --key` targets a key not in the secret                 | Error: `None of the requested keys exist in secret "…"`                                                          |
+   | `remove` would empty the secret (last key)                     | Error: `Cannot remove all keys from secret "…"` — use `env-secrets aws secret delete` to remove the whole secret |
+   | Partial match (`remove` with some valid and some missing keys) | Succeeds; output shows `RemovedKeys` and `MissingKeys`                                                           |
 
 6. **List secrets by prefix or tag:**
 
@@ -299,6 +316,7 @@ source secrets.env
 - `create`, `update`, and `append` accept `--value`, `--value-stdin`, or `--file` (use only one).
 - `create` always stores `SecretString` as a JSON object.
 - `append` and `remove` require the secret value to be a JSON object.
+- `remove` will error if it would leave the secret with zero keys — use `env-secrets aws secret delete` to remove the entire secret.
 - `upsert/import --file --name` parses `export KEY=value` and `KEY=value`, stores them as one JSON secret object, ignores blank lines/comments, and reports `created`, `updated`, `skipped`, and `failed`.
 - Use `--value-stdin` to avoid shell history leakage for sensitive values.
 - `value` masks secret values as `****` in table output by default. Use `--reveal` to show them (prints a warning to stderr). JSON output always returns full values and warns when stdout is a terminal.
