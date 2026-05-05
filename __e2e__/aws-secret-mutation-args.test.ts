@@ -126,19 +126,17 @@ describe('AWS Secret Mutation CLI Args', () => {
 
   test('should error when removing a key that does not exist in the secret', async () => {
     const secretName = `e2e-remove-missing-key-${Date.now()}`;
+    const tempFile = path.join(
+      os.tmpdir(),
+      `env-secrets-missing-key-${Date.now()}.env`
+    );
+    fs.writeFileSync(tempFile, 'API_KEY=abc');
     const createResult = await cliWithEnv(
-      [
-        'aws',
-        'secret',
-        'create',
-        '-n',
-        secretName,
-        '-v',
-        JSON.stringify({ API_KEY: 'abc' })
-      ],
+      ['aws', 'secret', 'upsert', '--file', tempFile, '--name', secretName],
       getLocalStackEnv()
     );
     expect(createResult.code).toBe(0);
+    cleanupTempFile(tempFile);
 
     const removeResult = await cliWithEnv(
       ['aws', 'secret', 'remove', '-n', secretName, '--key', 'GHOST_KEY'],
@@ -163,19 +161,17 @@ describe('AWS Secret Mutation CLI Args', () => {
 
   test('should error when removing the last key in a secret', async () => {
     const secretName = `e2e-remove-last-key-${Date.now()}`;
+    const tempFile = path.join(
+      os.tmpdir(),
+      `env-secrets-last-key-${Date.now()}.env`
+    );
+    fs.writeFileSync(tempFile, 'ONLY_KEY=only-value');
     const createResult = await cliWithEnv(
-      [
-        'aws',
-        'secret',
-        'create',
-        '-n',
-        secretName,
-        '-v',
-        JSON.stringify({ ONLY_KEY: 'only-value' })
-      ],
+      ['aws', 'secret', 'upsert', '--file', tempFile, '--name', secretName],
       getLocalStackEnv()
     );
     expect(createResult.code).toBe(0);
+    cleanupTempFile(tempFile);
 
     const removeResult = await cliWithEnv(
       ['aws', 'secret', 'remove', '-n', secretName, '--key', 'ONLY_KEY'],
@@ -200,19 +196,17 @@ describe('AWS Secret Mutation CLI Args', () => {
 
   test('should overwrite an existing key with append and preserve other keys', async () => {
     const secretName = `e2e-append-overwrite-${Date.now()}`;
+    const tempFile = path.join(
+      os.tmpdir(),
+      `env-secrets-append-overwrite-${Date.now()}.env`
+    );
+    fs.writeFileSync(tempFile, 'API_KEY=old-value\nDB_URL=postgres-url');
     const createResult = await cliWithEnv(
-      [
-        'aws',
-        'secret',
-        'create',
-        '-n',
-        secretName,
-        '-v',
-        JSON.stringify({ API_KEY: 'old-value', DB_URL: 'postgres://...' })
-      ],
+      ['aws', 'secret', 'upsert', '--file', tempFile, '--name', secretName],
       getLocalStackEnv()
     );
     expect(createResult.code).toBe(0);
+    cleanupTempFile(tempFile);
 
     const appendResult = await cliWithEnv(
       [
@@ -238,7 +232,7 @@ describe('AWS Secret Mutation CLI Args', () => {
     );
     expect(JSON.parse(afterAppend.stdout.trim())).toEqual({
       API_KEY: 'new-value',
-      DB_URL: 'postgres://...'
+      DB_URL: 'postgres-url'
     });
 
     await cliWithEnv(
@@ -257,19 +251,17 @@ describe('AWS Secret Mutation CLI Args', () => {
 
   test('should partially remove keys and report missing ones', async () => {
     const secretName = `e2e-remove-partial-${Date.now()}`;
+    const tempFile = path.join(
+      os.tmpdir(),
+      `env-secrets-partial-remove-${Date.now()}.env`
+    );
+    fs.writeFileSync(tempFile, 'REAL_KEY=value\nKEEP_KEY=keep');
     const createResult = await cliWithEnv(
-      [
-        'aws',
-        'secret',
-        'create',
-        '-n',
-        secretName,
-        '-v',
-        JSON.stringify({ REAL_KEY: 'value', KEEP_KEY: 'keep' })
-      ],
+      ['aws', 'secret', 'upsert', '--file', tempFile, '--name', secretName],
       getLocalStackEnv()
     );
     expect(createResult.code).toBe(0);
+    cleanupTempFile(tempFile);
 
     const removeResult = await cliWithEnv(
       [
