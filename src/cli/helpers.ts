@@ -259,7 +259,7 @@ export const applyKeyRemovals = (
 
   if (Object.keys(payload).length === 0) {
     throw new Error(
-      `Cannot remove all keys from secret "${secretName}" — it would leave an empty object. Delete the secret explicitly using 'aws secret delete'.`
+      `Cannot remove all keys from secret "${secretName}" — it would leave an empty object. Delete the secret explicitly using 'env-secrets aws secret delete'.`
     );
   }
 

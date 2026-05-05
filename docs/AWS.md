@@ -261,12 +261,12 @@ source secrets.env
 
    **Error cases:**
 
-   | Situation                                                      | Behaviour                                                                                            |
-   | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-   | Secret does not exist                                          | Error from AWS (`ResourceNotFoundException`)                                                         |
-   | `remove --key` targets a key not in the secret                 | Error: `None of the requested keys exist in secret "…"`                                              |
-   | `remove` would empty the secret (last key)                     | Error: `Cannot remove all keys from secret "…"` — use `aws secret delete` to remove the whole secret |
-   | Partial match (`remove` with some valid and some missing keys) | Succeeds; output shows `RemovedKeys` and `MissingKeys`                                               |
+   | Situation                                                      | Behaviour                                                                                                        |
+   | -------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+   | Secret does not exist                                          | Error from AWS (`ResourceNotFoundException`)                                                                     |
+   | `remove --key` targets a key not in the secret                 | Error: `None of the requested keys exist in secret "…"`                                                          |
+   | `remove` would empty the secret (last key)                     | Error: `Cannot remove all keys from secret "…"` — use `env-secrets aws secret delete` to remove the whole secret |
+   | Partial match (`remove` with some valid and some missing keys) | Succeeds; output shows `RemovedKeys` and `MissingKeys`                                                           |
 
 6. **List secrets by prefix or tag:**
 
@@ -316,7 +316,7 @@ source secrets.env
 - `create`, `update`, and `append` accept `--value`, `--value-stdin`, or `--file` (use only one).
 - `create` always stores `SecretString` as a JSON object.
 - `append` and `remove` require the secret value to be a JSON object.
-- `remove` will error if it would leave the secret with zero keys — use `aws secret delete` to remove the entire secret.
+- `remove` will error if it would leave the secret with zero keys — use `env-secrets aws secret delete` to remove the entire secret.
 - `upsert/import --file --name` parses `export KEY=value` and `KEY=value`, stores them as one JSON secret object, ignores blank lines/comments, and reports `created`, `updated`, `skipped`, and `failed`.
 - Use `--value-stdin` to avoid shell history leakage for sensitive values.
 - `value` masks secret values as `****` in table output by default. Use `--reveal` to show them (prints a warning to stderr). JSON output always returns full values and warns when stdout is a terminal.
