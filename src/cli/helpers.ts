@@ -234,6 +234,38 @@ export const resolveOutputFormat = (
   return 'table';
 };
 
+export const applyKeyRemovals = (
+  secretName: string,
+  payload: Record<string, unknown>,
+  keys: string[]
+): { removed: string[]; missing: string[] } => {
+  const removed: string[] = [];
+  const missing: string[] = [];
+
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(payload, key)) {
+      delete payload[key];
+      removed.push(key);
+    } else {
+      missing.push(key);
+    }
+  }
+
+  if (removed.length === 0) {
+    throw new Error(
+      `None of the requested keys exist in secret "${secretName}".`
+    );
+  }
+
+  if (Object.keys(payload).length === 0) {
+    throw new Error(
+      `Cannot remove all keys from secret "${secretName}" — it would leave an empty object. Delete the secret explicitly using 'env-secrets aws secret delete'.`
+    );
+  }
+
+  return { removed, missing };
+};
+
 export const resolveAwsScope = (
   options: AwsScopeOptions,
   command?: CommandLikeWithGlobalOpts

@@ -17,6 +17,7 @@ import {
   getSecretString
 } from './vaults/secretsmanager-admin';
 import {
+  applyKeyRemovals,
   asOutputFormat,
   parseEnvSecrets,
   parseEnvSecretsFile,
@@ -509,22 +510,11 @@ secretCommand
       });
       const payload = parseSecretJsonObject(options.name, current);
 
-      const removed: string[] = [];
-      const missing: string[] = [];
-      for (const key of keys) {
-        if (Object.prototype.hasOwnProperty.call(payload, key)) {
-          delete payload[key];
-          removed.push(key);
-        } else {
-          missing.push(key);
-        }
-      }
-
-      if (removed.length === 0) {
-        throw new Error(
-          `None of the requested keys exist in secret "${options.name}".`
-        );
-      }
+      const { removed, missing } = applyKeyRemovals(
+        options.name,
+        payload,
+        keys
+      );
 
       const result = await updateSecret({
         name: options.name,
