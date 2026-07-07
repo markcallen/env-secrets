@@ -371,29 +371,39 @@ secretCommand
             throw createError;
           }
 
-          const current = await getSecretString({
-            name: options.name,
-            profile,
-            region
-          });
-          let existing: Record<string, unknown> = {};
+          let mergedValue = value;
+          let updateMessage = `updated ${parsed.entries.length} keys`;
           try {
-            const parsedExisting = JSON.parse(current) as unknown;
-            if (
-              parsedExisting &&
-              !Array.isArray(parsedExisting) &&
-              typeof parsedExisting === 'object'
-            ) {
-              existing = parsedExisting as Record<string, unknown>;
+            const current = await getSecretString({
+              name: options.name,
+              profile,
+              region
+            });
+            let existing: Record<string, unknown> = {};
+            try {
+              const parsedExisting = JSON.parse(current) as unknown;
+              if (
+                parsedExisting &&
+                !Array.isArray(parsedExisting) &&
+                typeof parsedExisting === 'object'
+              ) {
+                existing = parsedExisting as Record<string, unknown>;
+              }
+            } catch {
+              // non-JSON existing secret; file keys will overwrite entirely
             }
+            const merged = { ...existing, ...payload };
+            mergedValue = JSON.stringify(merged);
+            updateMessage = `merged ${parsed.entries.length} keys (${
+              Object.keys(merged).length
+            } total)`;
           } catch {
-            // non-JSON existing secret; file keys will overwrite entirely
+            // binary or unreadable secret; overwrite with file keys only
           }
-          const merged = { ...existing, ...payload };
 
           await updateSecret({
             name: options.name,
-            value: JSON.stringify(merged),
+            value: mergedValue,
             description: options.description,
             kmsKeyId: options.kmsKeyId,
             profile,
@@ -403,9 +413,7 @@ secretCommand
           rows.push({
             name: options.name,
             status: 'updated',
-            message: `merged ${parsed.entries.length} keys (${
-              Object.keys(merged).length
-            } total)`
+            message: updateMessage
           });
         }
       } catch (error: unknown) {
