@@ -13,6 +13,7 @@
     "noImplicitAny": true,
     "skipLibCheck": true
   },
+  "exclude": ["mcp"],
   "references": [
     {
       "path": "../"

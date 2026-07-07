@@ -371,9 +371,39 @@ secretCommand
             throw createError;
           }
 
+          let mergedValue = value;
+          let updateMessage = `updated ${parsed.entries.length} keys`;
+          try {
+            const current = await getSecretString({
+              name: options.name,
+              profile,
+              region
+            });
+            let existing: Record<string, unknown> = {};
+            try {
+              const parsedExisting = JSON.parse(current) as unknown;
+              if (
+                parsedExisting &&
+                !Array.isArray(parsedExisting) &&
+                typeof parsedExisting === 'object'
+              ) {
+                existing = parsedExisting as Record<string, unknown>;
+              }
+            } catch {
+              // non-JSON existing secret; file keys will overwrite entirely
+            }
+            const merged = { ...existing, ...payload };
+            mergedValue = JSON.stringify(merged);
+            updateMessage = `merged ${parsed.entries.length} keys (${
+              Object.keys(merged).length
+            } total)`;
+          } catch {
+            // binary or unreadable secret; overwrite with file keys only
+          }
+
           await updateSecret({
             name: options.name,
-            value,
+            value: mergedValue,
             description: options.description,
             kmsKeyId: options.kmsKeyId,
             profile,
@@ -383,7 +413,7 @@ secretCommand
           rows.push({
             name: options.name,
             status: 'updated',
-            message: `imported ${parsed.entries.length} keys`
+            message: updateMessage
           });
         }
       } catch (error: unknown) {
