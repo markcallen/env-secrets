@@ -394,4 +394,81 @@ describe('AWS Secret Mutation CLI Args', () => {
     expect(deleteResult.code).toBe(0);
     cleanupTempFile(tempFile);
   });
+
+  test('should merge file keys with existing secret keys on upsert update', async () => {
+    const secretName = `e2e-upsert-merge-${Date.now()}`;
+    const tempFile = path.join(
+      os.tmpdir(),
+      `env-secrets-upsert-merge-${Date.now()}.env`
+    );
+
+    // Create initial secret with two keys
+    fs.writeFileSync(tempFile, 'API_KEY=original\nDB_URL=postgres://original');
+    const createRun = await cliWithEnv(
+      [
+        'aws',
+        'secret',
+        'upsert',
+        '--file',
+        tempFile,
+        '--name',
+        secretName,
+        '--output',
+        'json'
+      ],
+      getLocalStackEnv()
+    );
+    expect(createRun.code).toBe(0);
+    const createJson = JSON.parse(createRun.stdout) as {
+      summary: { created: number };
+    };
+    expect(createJson.summary.created).toBe(1);
+
+    // Update with a file that only contains API_KEY — DB_URL must be preserved
+    fs.writeFileSync(tempFile, 'API_KEY=updated');
+    const mergeRun = await cliWithEnv(
+      [
+        'aws',
+        'secret',
+        'upsert',
+        '--file',
+        tempFile,
+        '--name',
+        secretName,
+        '--output',
+        'json'
+      ],
+      getLocalStackEnv()
+    );
+    expect(mergeRun.code).toBe(0);
+    const mergeJson = JSON.parse(mergeRun.stdout) as {
+      summary: { updated: number };
+      results: Array<{ message: string }>;
+    };
+    expect(mergeJson.summary.updated).toBe(1);
+    expect(mergeJson.results[0].message).toMatch(/2 total/);
+
+    const afterMerge = await execAwslocalCommand(
+      `awslocal secretsmanager get-secret-value --secret-id "${secretName}" --region us-east-1 --query SecretString --output text`,
+      getLocalStackEnv()
+    );
+    expect(JSON.parse(afterMerge.stdout.trim())).toEqual({
+      API_KEY: 'updated',
+      DB_URL: 'postgres://original'
+    });
+
+    await cliWithEnv(
+      [
+        'aws',
+        'secret',
+        'delete',
+        '-n',
+        secretName,
+        '--force-delete-without-recovery',
+        '--yes'
+      ],
+      getLocalStackEnv()
+    );
+    cleanupTempFile(tempFile);
+  });
 });
