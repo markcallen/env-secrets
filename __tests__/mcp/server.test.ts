@@ -1,25 +1,9 @@
-const mockSecretSmanager = jest.fn();
 const mockListSecrets = jest.fn();
 const mockGetSecretMetadata = jest.fn();
-const mockCreateSecret = jest.fn();
-const mockUpdateSecret = jest.fn();
-const mockGetSecretString = jest.fn();
-const mockPromptTty = jest.fn();
-
-jest.mock('../../src/vaults/secretsmanager', () => ({
-  secretsmanager: mockSecretSmanager
-}));
 
 jest.mock('../../src/vaults/secretsmanager-admin', () => ({
   listSecrets: mockListSecrets,
-  getSecretMetadata: mockGetSecretMetadata,
-  createSecret: mockCreateSecret,
-  updateSecret: mockUpdateSecret,
-  getSecretString: mockGetSecretString
-}));
-
-jest.mock('../../src/mcp/tty', () => ({
-  promptTty: mockPromptTty
+  getSecretMetadata: mockGetSecretMetadata
 }));
 
 import { TOOL_DEFINITIONS, handleCallTool } from '../../src/mcp/handlers';
@@ -32,63 +16,13 @@ beforeEach(() => {
 });
 
 describe('TOOL_DEFINITIONS', () => {
-  it('exports all five tools', () => {
+  it('exports only the three safe tools', () => {
     const names = TOOL_DEFINITIONS.map((t) => t.name);
-    expect(names).toContain('get_secret');
     expect(names).toContain('list_secrets');
     expect(names).toContain('describe_secret');
-    expect(names).toContain('set_secret');
     expect(names).toContain('get_command');
-  });
-
-  it('set_secret schema has no value parameter', () => {
-    const setSecret = TOOL_DEFINITIONS.find((t) => t.name === 'set_secret');
-    expect(setSecret).toBeDefined();
-    expect(setSecret?.inputSchema.properties).not.toHaveProperty('value');
-  });
-
-  it('set_secret requires secret_name and key', () => {
-    const setSecret = TOOL_DEFINITIONS.find((t) => t.name === 'set_secret');
-    expect(setSecret?.inputSchema.required).toEqual(
-      expect.arrayContaining(['secret_name', 'key'])
-    );
-  });
-});
-
-describe('handleCallTool – get_secret', () => {
-  it('returns secret key/value pairs', async () => {
-    mockSecretSmanager.mockResolvedValue({
-      DB_URL: 'postgres://...',
-      API_KEY: 'sk-123'
-    });
-    const result = await handleCallTool('get_secret', {
-      secret_name: 'my-app/prod',
-      region: 'us-east-1'
-    });
-    expect(result.isError).toBeFalsy();
-    const parsed = JSON.parse(getText(result));
-    expect(parsed).toEqual({ DB_URL: 'postgres://...', API_KEY: 'sk-123' });
-  });
-
-  it('passes region and profile to secretsmanager', async () => {
-    mockSecretSmanager.mockResolvedValue({});
-    await handleCallTool('get_secret', {
-      secret_name: 'my-app',
-      region: 'eu-west-1',
-      profile: 'dev'
-    });
-    expect(mockSecretSmanager).toHaveBeenCalledWith({
-      secret: 'my-app',
-      region: 'eu-west-1',
-      profile: 'dev'
-    });
-  });
-
-  it('returns error content on failure', async () => {
-    mockSecretSmanager.mockRejectedValue(new Error('Access denied'));
-    const result = await handleCallTool('get_secret', { secret_name: 'bad' });
-    expect(result.isError).toBe(true);
-    expect(getText(result)).toContain('Access denied');
+    expect(names).not.toContain('get_secret');
+    expect(names).not.toContain('set_secret');
   });
 });
 
@@ -139,114 +73,6 @@ describe('handleCallTool – describe_secret', () => {
   });
 });
 
-describe('handleCallTool – set_secret', () => {
-  it('prompts via TTY and stores merged secret', async () => {
-    mockPromptTty.mockResolvedValue('supersecret');
-    mockGetSecretString.mockResolvedValue(JSON.stringify({ EXISTING: 'val' }));
-    mockUpdateSecret.mockResolvedValue({ name: 'my-app/prod', arn: 'arn:...' });
-
-    const result = await handleCallTool('set_secret', {
-      secret_name: 'my-app/prod',
-      key: 'NEW_KEY'
-    });
-
-    expect(mockPromptTty).toHaveBeenCalledWith(
-      expect.stringContaining('NEW_KEY')
-    );
-    expect(result.isError).toBeFalsy();
-    const parsed = JSON.parse(getText(result));
-    expect(parsed.success).toBe(true);
-    expect(parsed.key).toBe('NEW_KEY');
-    expect(parsed).not.toHaveProperty('value');
-  });
-
-  it('merges new key with existing secret keys', async () => {
-    mockPromptTty.mockResolvedValue('newvalue');
-    mockGetSecretString.mockResolvedValue(JSON.stringify({ EXISTING: 'old' }));
-    mockUpdateSecret.mockResolvedValue({ name: 'my-app', arn: 'arn:...' });
-
-    await handleCallTool('set_secret', {
-      secret_name: 'my-app',
-      key: 'ADDED'
-    });
-
-    expect(mockUpdateSecret).toHaveBeenCalledWith(
-      expect.objectContaining({
-        value: JSON.stringify({ EXISTING: 'old', ADDED: 'newvalue' })
-      })
-    );
-  });
-
-  it('creates secret when it does not exist', async () => {
-    mockPromptTty.mockResolvedValue('value');
-    mockGetSecretString.mockRejectedValue(new Error('not found'));
-    mockUpdateSecret.mockRejectedValue(new Error('was not found'));
-    mockCreateSecret.mockResolvedValue({ name: 'new-secret', arn: 'arn:...' });
-
-    const result = await handleCallTool('set_secret', {
-      secret_name: 'new-secret',
-      key: 'KEY'
-    });
-
-    expect(mockCreateSecret).toHaveBeenCalled();
-    expect(result.isError).toBeFalsy();
-  });
-
-  it('response never contains the secret value', async () => {
-    mockPromptTty.mockResolvedValue('topsecret-value');
-    mockGetSecretString.mockResolvedValue('{}');
-    mockUpdateSecret.mockResolvedValue({ name: 'my-app', arn: 'arn:...' });
-
-    const result = await handleCallTool('set_secret', {
-      secret_name: 'my-app',
-      key: 'TOKEN'
-    });
-
-    expect(getText(result)).not.toContain('topsecret-value');
-  });
-
-  it('returns error when TTY is unavailable', async () => {
-    mockPromptTty.mockRejectedValue(new Error('/dev/tty is unavailable'));
-
-    const result = await handleCallTool('set_secret', {
-      secret_name: 'my-app',
-      key: 'KEY'
-    });
-
-    expect(result.isError).toBe(true);
-    expect(getText(result)).toContain('/dev/tty is unavailable');
-  });
-
-  it('rethrows updateSecret errors that are not "was not found"', async () => {
-    mockPromptTty.mockResolvedValue('value');
-    mockGetSecretString.mockRejectedValue(new Error('secret does not exist'));
-    mockUpdateSecret.mockRejectedValue(new Error('KMS key access denied'));
-
-    const result = await handleCallTool('set_secret', {
-      secret_name: 'my-app',
-      key: 'KEY'
-    });
-
-    expect(result.isError).toBe(true);
-    expect(getText(result)).toContain('KMS key access denied');
-    expect(mockCreateSecret).not.toHaveBeenCalled();
-  });
-
-  it('returns error when existing secret is not a JSON object', async () => {
-    mockPromptTty.mockResolvedValue('value');
-    // Valid JSON but not an object (a JSON string value)
-    mockGetSecretString.mockResolvedValue('"just-a-string"');
-
-    const result = await handleCallTool('set_secret', {
-      secret_name: 'my-app',
-      key: 'KEY'
-    });
-
-    expect(result.isError).toBe(true);
-    expect(getText(result)).toContain('not a JSON object');
-  });
-});
-
 describe('handleCallTool – get_command', () => {
   it('returns inject command for action=get', async () => {
     const result = await handleCallTool('get_command', {
@@ -276,7 +102,6 @@ describe('handleCallTool – get_command', () => {
     });
     const cmd = getText(result);
     expect(cmd).toMatch(/--value-stdin/);
-    // No real value appears in the command itself
     expect(cmd).not.toMatch(/TOKEN=.+/);
   });
 
@@ -323,6 +148,25 @@ describe('handleCallTool – get_command', () => {
       region: 'us-east-1'
     });
     expect(getText(result)).toContain("'app'\\''s secret'");
+  });
+});
+
+describe('handleCallTool – removed tools', () => {
+  it('returns an error for get_secret', async () => {
+    const result = await handleCallTool('get_secret', {
+      secret_name: 'my-app/prod'
+    });
+    expect(result.isError).toBe(true);
+    expect(getText(result)).toContain('Unknown tool');
+  });
+
+  it('returns an error for set_secret', async () => {
+    const result = await handleCallTool('set_secret', {
+      secret_name: 'my-app/prod',
+      key: 'KEY'
+    });
+    expect(result.isError).toBe(true);
+    expect(getText(result)).toContain('Unknown tool');
   });
 });
 
