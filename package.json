@@ -13,9 +13,9 @@
   "private": false,
   "scripts": {
     "prepare": "husky install",
-    "build": "rimraf ./dist && tsc -b src",
+    "build": "rimraf ./dist && tsc -b src && tsc -p src/mcp",
     "start": "node dist/index.js",
-    "postbuild": "chmod 755 ./dist/index.js",
+    "postbuild": "chmod 755 ./dist/index.js ./dist/mcp/index.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "release": "release-it",
@@ -47,15 +47,16 @@
     "prettier": "^2.8.8",
     "release-it": "^15.11.0",
     "rimraf": "^3.0.2",
-    "tsc-files": "^1.1.4",
     "ts-jest": "^29.4.11",
     "ts-node": "^10.9.2",
+    "tsc-files": "^1.1.4",
     "typescript": "^4.9.5"
   },
   "dependencies": {
     "@aws-sdk/client-secrets-manager": "^3.1080.0",
     "@aws-sdk/client-sts": "^3.1080.0",
     "@aws-sdk/credential-providers": "^3.1080.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
     "commander": "^9.5.0",
     "debug": "^4.4.3"
   },
@@ -78,7 +79,8 @@
     "provenance": true
   },
   "bin": {
-    "env-secrets": "dist/index.js"
+    "env-secrets": "dist/index.js",
+    "env-secrets-mcp": "dist/mcp/index.js"
   },
   "engines": {
     "node": ">=20.0.0"

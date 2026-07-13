@@ -1,0 +1,248 @@
+---
+title: MCP Server
+description: Use env-secrets as an MCP server to give AI agents secure access to AWS Secrets Manager
+---
+
+# MCP Server
+
+The `env-secrets` MCP (Model Context Protocol) server lets AI agents — Claude Code, OpenAI Codex, Gemini CLI, and others — retrieve and set secrets from AWS Secrets Manager during an agentic session, without the agent needing to know vault credentials or SDK specifics.
+
+**Transport: stdio only.** The server runs as a subprocess launched by the MCP host. No daemon, no open port.
+
+## Why use it?
+
+AI agents frequently need secrets (API keys, database URLs, tokens) to run commands, call APIs, or validate infrastructure. Without an MCP server, developers must either hardcode secrets in agent config files (risky) or manually inject them before starting the agent session.
+
+With the `env-secrets` MCP server, agents can call a tool to fetch secrets on demand — and, optionally, trigger secret creation via TTY prompting without the value ever entering the agent's context.
+
+## Quick Setup
+
+### Claude Code
+
+Add to `~/.claude/settings.json`:
+
+```json
+{
+  "mcpServers": {
+    "env-secrets": {
+      "command": "npx",
+      "args": ["-y", "env-secrets", "mcp"],
+      "env": {
+        "AWS_REGION": "us-east-1"
+      }
+    }
+  }
+}
+```
+
+Or, if installed globally (`npm install -g env-secrets`):
+
+```json
+{
+  "mcpServers": {
+    "env-secrets": {
+      "command": "env-secrets-mcp"
+    }
+  }
+}
+```
+
+Restart Claude Code. The tools below are immediately available in the session.
+
+### OpenAI Codex
+
+```toml
+[[mcp_servers]]
+name = "env-secrets"
+command = ["npx", "-y", "env-secrets", "mcp"]
+
+[mcp_servers.env]
+AWS_REGION = "us-east-1"
+```
+
+### Gemini CLI
+
+```json
+{
+  "mcpServers": {
+    "env-secrets": {
+      "command": "npx",
+      "args": ["-y", "env-secrets", "mcp"],
+      "env": { "AWS_REGION": "us-east-1" }
+    }
+  }
+}
+```
+
+---
+
+## Available Tools
+
+### `get_secret`
+
+Retrieves all key/value pairs from a secret and returns them to the agent.
+
+```json
+{
+  "name": "get_secret",
+  "arguments": {
+    "secret_name": "my-app/prod",
+    "region": "us-east-1"
+  }
+}
+```
+
+**Response:**
+
+```json
+{
+  "DB_URL": "postgres://...",
+  "API_KEY": "sk-..."
+}
+```
+
+:::note
+The values are returned to the agent's context. Use `describe_secret` or `get_command` when you want the agent to remain unaware of values.
+:::
+
+---
+
+### `list_secrets`
+
+Lists secrets by name, with optional prefix filter. Values are never returned.
+
+```json
+{
+  "name": "list_secrets",
+  "arguments": {
+    "prefix": "my-app/",
+    "region": "us-east-1"
+  }
+}
+```
+
+**Response:**
+
+```json
+[
+  {
+    "name": "my-app/prod",
+    "description": "Production secrets",
+    "lastChangedDate": "..."
+  },
+  { "name": "my-app/staging", "description": null, "lastChangedDate": "..." }
+]
+```
+
+---
+
+### `describe_secret`
+
+Returns metadata about a secret — ARN, creation date, last-changed date, description. **Never returns secret values.**
+
+```json
+{
+  "name": "describe_secret",
+  "arguments": {
+    "secret_name": "my-app/prod"
+  }
+}
+```
+
+---
+
+### `set_secret` — TTY Prompting
+
+Sets a key within a JSON secret. **The value is never passed as a tool argument.**
+
+When called, the MCP server opens `/dev/tty` directly to prompt you on your terminal. The value you type goes straight to AWS Secrets Manager — it never appears in the MCP stdio stream and never enters the agent's context.
+
+```json
+{
+  "name": "set_secret",
+  "arguments": {
+    "secret_name": "my-app/prod",
+    "key": "DATABASE_URL"
+  }
+}
+```
+
+**What happens:**
+
+```
+AI calls:  set_secret(secret_name="my-app/prod", key="DATABASE_URL")
+           ↓
+MCP server opens /dev/tty
+           ↓
+Your terminal: Enter value for DATABASE_URL: ████████  ← you type here, echo disabled
+           ↓
+Value stored in AWS Secrets Manager
+           ↓
+Agent receives: { "success": true, "name": "my-app/prod", "key": "DATABASE_URL" }
+```
+
+The agent sees the tool parameters and the `success` result — never the value.
+
+#### Why no `value` parameter?
+
+If the agent supplied a `value`, the secret would need to be in the agent's context to construct the tool call. By accepting only `secret_name` and `key`, the agent triggers the operation without ever seeing what's being stored.
+
+:::note
+`set_secret` requires a controlling terminal. In CI or non-interactive environments where `/dev/tty` is unavailable, the tool returns a clear error. Use `get_command` instead.
+:::
+
+---
+
+### `get_command`
+
+Returns a ready-to-run `env-secrets` CLI string for the requested action. The agent can display it to you and ask you to run it yourself — no secret values ever enter the agent's context.
+
+```json
+{
+  "name": "get_command",
+  "arguments": {
+    "action": "set",
+    "secret_name": "my-app/prod",
+    "key": "DATABASE_URL",
+    "region": "us-east-1"
+  }
+}
+```
+
+**Response:**
+
+```
+printf 'your-value' | env-secrets aws secret append -n my-app/prod --key DATABASE_URL --value-stdin --region us-east-1
+```
+
+For `set` actions, the command always uses `--value-stdin` so the value is never in the shell command or shell history.
+
+| Action     | Example output                                                                                |
+| ---------- | --------------------------------------------------------------------------------------------- |
+| `get`      | `env-secrets aws -s my-app/prod -- <your-program>`                                            |
+| `set`      | `printf 'your-value' \| env-secrets aws secret append -n my-app/prod --key KEY --value-stdin` |
+| `list`     | `env-secrets aws secret list --prefix my-app/`                                                |
+| `describe` | `env-secrets aws secret get -n my-app/prod`                                                   |
+
+---
+
+## AWS Credentials
+
+The MCP server uses the standard AWS credential chain — environment variables, `~/.aws/credentials`, IAM roles, etc. Set `AWS_REGION` in the MCP server `env` block, or pass `region` on each tool call.
+
+No new auth configuration is needed beyond what you already use for the `env-secrets` CLI.
+
+---
+
+## Security Summary
+
+| Tool              | Agent sees values?                               |
+| ----------------- | ------------------------------------------------ |
+| `get_secret`      | ✅ Yes — returned to agent context               |
+| `list_secrets`    | ❌ No — names only                               |
+| `describe_secret` | ❌ No — metadata only                            |
+| `set_secret`      | ❌ No — TTY prompting, value bypasses MCP stream |
+| `get_command`     | ❌ No — returns CLI string only                  |
+
+- No HTTP or SSE transport — stdio only, never exposed as a network service.
+- Server exits cleanly when stdin closes (host process terminated).

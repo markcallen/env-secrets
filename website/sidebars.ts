@@ -21,6 +21,7 @@ const sidebars: SidebarsConfig = {
       ]
     },
     { type: 'doc', id: 'cli-reference' },
+    { type: 'doc', id: 'mcp' },
     { type: 'doc', id: 'examples' },
     { type: 'doc', id: 'advanced-usage' },
     { type: 'doc', id: 'best-practices' },
