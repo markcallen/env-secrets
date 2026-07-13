@@ -19,3 +19,6 @@ coverage-e2e/
 # files created during testing
 secrets.env
 .ballast/
+
+# Claude Code
+.claude/scheduled_tasks.lock
