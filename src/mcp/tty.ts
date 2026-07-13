@@ -12,7 +12,8 @@ export async function promptTty(prompt: string): Promise<string> {
   }
 
   try {
-    execSync('stty -echo', { stdio: 'inherit' });
+    // Pass fd as stdin so stty targets the /dev/tty we opened, not the MCP stdio pipe.
+    execSync('stty -echo', { stdio: [fd, 'inherit', 'inherit'] });
     fs.writeSync(fd, prompt);
 
     const chunks: Buffer[] = [];
@@ -27,7 +28,7 @@ export async function promptTty(prompt: string): Promise<string> {
     return Buffer.concat(chunks).toString('utf8');
   } finally {
     try {
-      execSync('stty echo', { stdio: 'inherit' });
+      execSync('stty echo', { stdio: [fd, 'inherit', 'inherit'] });
     } catch {
       // ignore restore failure
     }

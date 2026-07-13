@@ -9,6 +9,8 @@ import {
 } from '../vaults/secretsmanager-admin';
 import { promptTty } from './tty';
 
+const shellQuote = (s: string): string => `'${s.replace(/'/g, "'\\''")}'`;
+
 export const TOOL_DEFINITIONS = [
   {
     name: 'get_secret',
@@ -16,13 +18,9 @@ export const TOOL_DEFINITIONS = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        secret_name: { type: 'string', description: 'Secret name or ARN' },
+        secret_name: { type: 'string', description: 'Secret name' },
         region: { type: 'string', description: 'AWS region' },
-        profile: { type: 'string', description: 'AWS profile name' },
-        vault: {
-          type: 'string',
-          description: 'Vault type (currently only aws)'
-        }
+        profile: { type: 'string', description: 'AWS profile name' }
       },
       required: ['secret_name']
     }
@@ -48,7 +46,7 @@ export const TOOL_DEFINITIONS = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        secret_name: { type: 'string', description: 'Secret name or ARN' },
+        secret_name: { type: 'string', description: 'Secret name' },
         region: { type: 'string', description: 'AWS region' },
         profile: { type: 'string', description: 'AWS profile name' }
       },
@@ -62,7 +60,7 @@ export const TOOL_DEFINITIONS = [
     inputSchema: {
       type: 'object' as const,
       properties: {
-        secret_name: { type: 'string', description: 'Secret name or ARN' },
+        secret_name: { type: 'string', description: 'Secret name' },
         key: {
           type: 'string',
           description: 'Key to set within the JSON secret'
@@ -116,7 +114,6 @@ export async function handleCallTool(
         secret_name: string;
         region?: string;
         profile?: string;
-        vault?: string;
       };
       const result = await secretsmanager({
         secret: secret_name,
@@ -168,15 +165,26 @@ export async function handleCallTool(
       const value = await promptTty(`Enter value for ${key}: `);
 
       let existing: Record<string, unknown> = {};
+      let secretFound = false;
       try {
         const raw = await getSecretString({
           name: secret_name,
           region,
           profile
         });
-        existing = JSON.parse(raw) as Record<string, unknown>;
-      } catch {
-        // secret does not exist yet or is not valid JSON — start fresh
+        secretFound = true;
+        const parsed: unknown = JSON.parse(raw);
+        if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
+          throw new Error(
+            `Secret "${secret_name}" is not a JSON object. Use the CLI to manage non-JSON secrets directly.`
+          );
+        }
+        existing = parsed as Record<string, unknown>;
+      } catch (err) {
+        if (secretFound) {
+          throw err;
+        }
+        // secret does not exist yet — will be created below
       }
 
       const merged = { ...existing, [key]: value };
@@ -230,21 +238,29 @@ export async function handleCallTool(
       };
 
       const flags: string[] = [];
-      if (region) flags.push(`--region ${region}`);
-      if (profile) flags.push(`--profile ${profile}`);
+      if (region) flags.push(`--region ${shellQuote(region)}`);
+      if (profile) flags.push(`--profile ${shellQuote(profile)}`);
       const flagStr = flags.length ? ` ${flags.join(' ')}` : '';
 
       let cmd: string;
 
       if (action === 'get' && secret_name) {
-        cmd = `env-secrets aws -s ${secret_name}${flagStr} -- <your-program>`;
+        cmd = `env-secrets aws -s ${shellQuote(
+          secret_name
+        )}${flagStr} -- <your-program>`;
       } else if (action === 'set' && secret_name && key) {
-        cmd = `printf 'your-value' | env-secrets aws secret append -n ${secret_name} --key ${key} --value-stdin${flagStr}`;
+        cmd = `printf 'your-value' | env-secrets aws secret append -n ${shellQuote(
+          secret_name
+        )} --key ${shellQuote(key)} --value-stdin${flagStr}`;
       } else if (action === 'list') {
-        const prefixFlag = secret_name ? ` --prefix ${secret_name}` : '';
+        const prefixFlag = secret_name
+          ? ` --prefix ${shellQuote(secret_name)}`
+          : '';
         cmd = `env-secrets aws secret list${prefixFlag}${flagStr}`;
       } else if (action === 'describe' && secret_name) {
-        cmd = `env-secrets aws secret get -n ${secret_name}${flagStr}`;
+        cmd = `env-secrets aws secret get -n ${shellQuote(
+          secret_name
+        )}${flagStr}`;
       } else {
         cmd = `env-secrets aws${flagStr}`;
       }

@@ -7,8 +7,11 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { TOOL_DEFINITIONS, handleCallTool } from './handlers';
 
+// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
+const { version } = require('../../package.json') as { version: string };
+
 const server = new Server(
-  { name: 'env-secrets', version: '1.0.0' },
+  { name: 'env-secrets', version },
   { capabilities: { tools: {} } }
 );
 

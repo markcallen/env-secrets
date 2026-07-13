@@ -29,12 +29,11 @@ Or use with `npx` (no global install needed):
 
 Retrieve all key/value pairs from a secret.
 
-| Parameter     | Required | Description                 |
-| ------------- | -------- | --------------------------- |
-| `secret_name` | ✅       | Secret name or ARN          |
-| `region`      |          | AWS region                  |
-| `profile`     |          | AWS profile name            |
-| `vault`       |          | Vault type (`aws`, default) |
+| Parameter     | Required | Description      |
+| ------------- | -------- | ---------------- |
+| `secret_name` | ✅       | Secret name      |
+| `region`      |          | AWS region       |
+| `profile`     |          | AWS profile name |
 
 **Example response:**
 
@@ -80,11 +79,11 @@ List available secret names, with optional prefix filter.
 
 Return metadata about a secret. **Never returns the secret value.**
 
-| Parameter     | Required | Description        |
-| ------------- | -------- | ------------------ |
-| `secret_name` | ✅       | Secret name or ARN |
-| `region`      |          | AWS region         |
-| `profile`     |          | AWS profile name   |
+| Parameter     | Required | Description      |
+| ------------- | -------- | ---------------- |
+| `secret_name` | ✅       | Secret name      |
+| `region`      |          | AWS region       |
+| `profile`     |          | AWS profile name |
 
 **Example response:**
 
@@ -106,7 +105,7 @@ Set a key within a JSON secret. **The value is never passed as a tool argument.*
 
 | Parameter     | Required | Description                                               |
 | ------------- | -------- | --------------------------------------------------------- |
-| `secret_name` | ✅       | Secret name or ARN                                        |
+| `secret_name` | ✅       | Secret name                                               |
 | `key`         | ✅       | Key to set within the JSON secret                         |
 | `description` |          | Secret description (used only when creating a new secret) |
 | `region`      |          | AWS region                                                |
@@ -122,7 +121,7 @@ If the agent supplied a `value` parameter, the secret would need to appear in th
 AI calls:  set_secret(secret_name="my-app/prod", key="DATABASE_URL")
 MCP server opens /dev/tty → user types value in terminal (echo disabled)
 MCP server stores the value in AWS Secrets Manager
-MCP server returns: { "success": true, "secret_name": "my-app/prod", "key": "DATABASE_URL" }
+MCP server returns: { "success": true, "name": "my-app/prod", "key": "DATABASE_URL" }
 ```
 
 The agent sees the tool call parameters (`secret_name`, `key`) and the result (`success`, `arn`) — never the value.

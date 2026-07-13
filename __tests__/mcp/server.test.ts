@@ -216,6 +216,35 @@ describe('handleCallTool – set_secret', () => {
     expect(result.isError).toBe(true);
     expect(getText(result)).toContain('/dev/tty is unavailable');
   });
+
+  it('rethrows updateSecret errors that are not "was not found"', async () => {
+    mockPromptTty.mockResolvedValue('value');
+    mockGetSecretString.mockRejectedValue(new Error('secret does not exist'));
+    mockUpdateSecret.mockRejectedValue(new Error('KMS key access denied'));
+
+    const result = await handleCallTool('set_secret', {
+      secret_name: 'my-app',
+      key: 'KEY'
+    });
+
+    expect(result.isError).toBe(true);
+    expect(getText(result)).toContain('KMS key access denied');
+    expect(mockCreateSecret).not.toHaveBeenCalled();
+  });
+
+  it('returns error when existing secret is not a JSON object', async () => {
+    mockPromptTty.mockResolvedValue('value');
+    // Valid JSON but not an object (a JSON string value)
+    mockGetSecretString.mockResolvedValue('"just-a-string"');
+
+    const result = await handleCallTool('set_secret', {
+      secret_name: 'my-app',
+      key: 'KEY'
+    });
+
+    expect(result.isError).toBe(true);
+    expect(getText(result)).toContain('not a JSON object');
+  });
 });
 
 describe('handleCallTool – get_command', () => {
@@ -226,8 +255,8 @@ describe('handleCallTool – get_command', () => {
       region: 'us-east-1'
     });
     expect(getText(result)).toContain('env-secrets aws');
-    expect(getText(result)).toContain('-s my-app/prod');
-    expect(getText(result)).toContain('--region us-east-1');
+    expect(getText(result)).toContain("-s 'my-app/prod'");
+    expect(getText(result)).toContain("--region 'us-east-1'");
   });
 
   it('uses --value-stdin for action=set', async () => {
@@ -261,7 +290,7 @@ describe('handleCallTool – get_command', () => {
       action: 'list',
       secret_name: 'my-app/'
     });
-    expect(getText(result)).toContain('--prefix my-app/');
+    expect(getText(result)).toContain("--prefix 'my-app/'");
   });
 
   it('returns metadata command for action=describe', async () => {
@@ -279,7 +308,21 @@ describe('handleCallTool – get_command', () => {
       secret_name: 'x',
       profile: 'prod'
     });
-    expect(getText(result)).toContain('--profile prod');
+    expect(getText(result)).toContain("--profile 'prod'");
+  });
+
+  it('returns bare env-secrets command when action=get has no secret_name', async () => {
+    const result = await handleCallTool('get_command', { action: 'get' });
+    expect(getText(result)).toBe('env-secrets aws');
+  });
+
+  it('quotes secret names with single quotes in shell commands', async () => {
+    const result = await handleCallTool('get_command', {
+      action: 'get',
+      secret_name: "app's secret",
+      region: 'us-east-1'
+    });
+    expect(getText(result)).toContain("'app'\\''s secret'");
   });
 });
 
