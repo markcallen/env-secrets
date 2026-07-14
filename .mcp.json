@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "env-secrets": {
-      "command": "node",
-      "args": ["/home/marka/src/env-secrets/dist/mcp/index.js"]
-    }
-  }
-}
