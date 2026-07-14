@@ -3,6 +3,7 @@
 
 import { Command, Argument } from 'commander';
 import { spawn } from 'node:child_process';
+import { join } from 'node:path';
 import { writeFileSync, existsSync } from 'node:fs';
 import Debug from 'debug';
 
@@ -798,6 +799,15 @@ secretCommand
     } catch (error: unknown) {
       exitWithError(error);
     }
+  });
+
+program
+  .command('mcp')
+  .description('Start the env-secrets MCP server (stdio transport)')
+  .action(() => {
+    const mcpBin = join(__dirname, 'mcp', 'index.js');
+    const child = spawn(process.execPath, [mcpBin], { stdio: 'inherit' });
+    child.on('exit', (code) => process.exit(code ?? 0));
   });
 
 program.parse();
