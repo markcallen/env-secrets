@@ -80,10 +80,16 @@ export async function handleCallTool(
 
     if (name === 'describe_secret') {
       const { secret_name, region, profile } = args as {
-        secret_name: string;
+        secret_name?: string;
         region?: string;
         profile?: string;
       };
+      if (!secret_name || typeof secret_name !== 'string') {
+        return {
+          content: [{ type: 'text', text: 'Error: secret_name is required' }],
+          isError: true
+        };
+      }
       const result = await getSecretMetadata({
         name: secret_name,
         region,
@@ -127,8 +133,43 @@ export async function handleCallTool(
         cmd = `env-secrets aws secret get -n ${shellQuote(
           secret_name
         )}${flagStr}`;
+      } else if (action === 'get' && !secret_name) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: 'Error: secret_name is required for action "get"'
+            }
+          ],
+          isError: true
+        };
+      } else if (action === 'set' && (!secret_name || !key)) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: 'Error: secret_name and key are required for action "set"'
+            }
+          ],
+          isError: true
+        };
+      } else if (action === 'describe' && !secret_name) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: 'Error: secret_name is required for action "describe"'
+            }
+          ],
+          isError: true
+        };
       } else {
-        cmd = `env-secrets aws${flagStr}`;
+        return {
+          content: [
+            { type: 'text', text: `Error: unknown action "${action}"` }
+          ],
+          isError: true
+        };
       }
 
       return {

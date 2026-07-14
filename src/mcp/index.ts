@@ -24,19 +24,18 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   return handleCallTool(name, (args ?? {}) as Record<string, unknown>);
 });
 
+function shutdown() {
+  server.close().finally(() => process.exit(0));
+}
+
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
 
-  process.stdin.on('close', async () => {
-    await server.close();
-    process.exit(0);
-  });
-
-  process.on('SIGTERM', async () => {
-    await server.close();
-    process.exit(0);
-  });
+  process.stdin.on('end', shutdown);
+  process.stdin.on('close', shutdown);
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 
 main().catch((err: unknown) => {

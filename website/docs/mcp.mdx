@@ -261,7 +261,11 @@ env-secrets aws -s 'my-app/prod' --region 'us-east-1' -- <your-program>
 printf 'your-value' | env-secrets aws secret append -n 'my-app/prod' --key 'DATABASE_URL' --value-stdin --region 'us-east-1'
 ```
 
-The `set` command always uses `--value-stdin` so the value is piped in by you and never appears in shell history.
+The `set` command uses `--value-stdin` so the value is piped in by you and never enters the agent stream. Replace `'your-value'` with `read -rs` to also keep it out of shell history:
+
+```bash
+read -rs VALUE && printf '%s' "$VALUE" | env-secrets aws secret append -n 'my-app/prod' --key 'DATABASE_URL' --value-stdin
+```
 
 **Example — get command to list secrets:**
 
@@ -407,7 +411,7 @@ If values were returned to the agent, they would appear in the conversation tran
 
 **How do I read a secret value myself?**
 
-Use `get_command` with `action: "describe"` to get the CLI command, then run it in your terminal:
+Run `env-secrets aws secret value` directly in your terminal (not via the agent):
 
 ```bash
 env-secrets aws secret value -n my-app/prod --reveal

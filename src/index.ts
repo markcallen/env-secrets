@@ -807,6 +807,12 @@ program
   .action(() => {
     const mcpBin = join(__dirname, 'mcp', 'index.js');
     const child = spawn(process.execPath, [mcpBin], { stdio: 'inherit' });
+    child.on('error', (err) => {
+      process.stderr.write(
+        `env-secrets mcp: failed to start: ${err.message}\n`
+      );
+      process.exit(1);
+    });
     child.on('exit', (code) => process.exit(code ?? 0));
   });
 

@@ -136,9 +136,10 @@ describe('handleCallTool – get_command', () => {
     expect(getText(result)).toContain("--profile 'prod'");
   });
 
-  it('returns bare env-secrets command when action=get has no secret_name', async () => {
+  it('returns an error when action=get has no secret_name', async () => {
     const result = await handleCallTool('get_command', { action: 'get' });
-    expect(getText(result)).toBe('env-secrets aws');
+    expect(result.isError).toBe(true);
+    expect(getText(result)).toContain('secret_name is required');
   });
 
   it('quotes secret names with single quotes in shell commands', async () => {
