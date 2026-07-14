@@ -551,6 +551,55 @@ awslocal secretsmanager get-secret-value \
 
 ```
 
+### MCP Server Local Development
+
+To develop or test the MCP server locally, build the project first and then generate a `.mcp.json` that points at your local build:
+
+```bash
+yarn build
+yarn mcp:config
+```
+
+`yarn mcp:config` writes `.mcp.json` in the repo root with an absolute path to `dist/mcp/index.js` on your machine:
+
+```json
+{
+  "mcpServers": {
+    "env-secrets": {
+      "command": "node",
+      "args": ["/your/path/to/env-secrets/dist/mcp/index.js"]
+    }
+  }
+}
+```
+
+Re-run `yarn mcp:config` whenever the path changes (e.g. after moving the repo). The file is gitignored — each developer generates their own copy.
+
+To test the MCP server directly over stdio:
+
+```bash
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | node dist/mcp/index.js
+```
+
+To verify the `mcp` CLI subcommand works end-to-end:
+
+```bash
+node dist/index.js mcp --help
+```
+
+For published releases, users can point their agent at the npm package instead of a local build:
+
+```json
+{
+  "mcpServers": {
+    "env-secrets": {
+      "command": "npx",
+      "args": ["-y", "env-secrets", "mcp"]
+    }
+  }
+}
+```
+
 ### Devpod Setup
 
 Create a devpod using Kubernetes provider:
