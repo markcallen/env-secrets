@@ -27,7 +27,8 @@
     "test:unit:coverage": "jest __tests__ --coverage",
     "test:e2e": "npm run build && jest --config jest.e2e.config.js",
     "test:e2e:coverage": "npm run build && jest --config jest.e2e.config.js --coverage --coverageDirectory=coverage-e2e",
-    "test:e2e:debug": "npm run build && DEBUG=true jest --config jest.e2e.config.js"
+    "test:e2e:debug": "npm run build && DEBUG=true jest --config jest.e2e.config.js",
+    "mcp:config": "node -e \"const p=require('path');const f=p.resolve('dist','mcp','index.js');const c={mcpServers:{'env-secrets':{command:'node',args:[f]}}};require('fs').writeFileSync('.mcp.json',JSON.stringify(c,null,2)+'\\n');console.log('wrote .mcp.json ->',f);\""
   },
   "devDependencies": {
     "@everydaydevopsio/ballast": "^3.2.1",
