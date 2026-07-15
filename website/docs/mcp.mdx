@@ -1,0 +1,442 @@
+---
+title: MCP Server
+description: Use env-secrets as an MCP server to give AI agents secure access to AWS Secrets Manager — without secret values ever entering the agent's context.
+---
+
+# MCP Server
+
+The `env-secrets` MCP (Model Context Protocol) server lets AI agents — Claude Code, OpenAI Codex, Gemini CLI, and others — work with AWS Secrets Manager secrets during an agentic session.
+
+**Transport: stdio only.** The server runs as a subprocess launched by the MCP host. No daemon, no open port.
+
+---
+
+## Security Model
+
+**Secret values never enter the agent's context.** This is the core design principle.
+
+The MCP server exposes three tools:
+
+| Tool              | What it returns           | Values exposed to agent? |
+| ----------------- | ------------------------- | ------------------------ |
+| `list_secrets`    | Secret names and metadata | ❌ No                    |
+| `describe_secret` | ARN, dates, description   | ❌ No                    |
+| `get_command`     | Ready-to-run CLI string   | ❌ No                    |
+
+To read or write a secret value, the agent uses `get_command` to produce a CLI command, then asks you to run it yourself in your terminal — the value stays entirely outside the agent stream.
+
+---
+
+## Quick Setup
+
+### Claude Code
+
+Add to `~/.claude/settings.json` (global) or `.claude/settings.json` (project-level):
+
+```json
+{
+  "mcpServers": {
+    "env-secrets": {
+      "command": "npx",
+      "args": ["-y", "env-secrets", "mcp"],
+      "env": {
+        "AWS_REGION": "us-east-1"
+      }
+    }
+  }
+}
+```
+
+With a global install (`npm install -g env-secrets`):
+
+```json
+{
+  "mcpServers": {
+    "env-secrets": {
+      "command": "env-secrets-mcp"
+    }
+  }
+}
+```
+
+Restart Claude Code after saving. The tools `list_secrets`, `describe_secret`, and `get_command` are immediately available in the session.
+
+### OpenAI Codex
+
+```toml
+[[mcp_servers]]
+name = "env-secrets"
+command = ["npx", "-y", "env-secrets", "mcp"]
+
+[mcp_servers.env]
+AWS_REGION = "us-east-1"
+```
+
+With a global install:
+
+```toml
+[[mcp_servers]]
+name = "env-secrets"
+command = ["env-secrets-mcp"]
+```
+
+### Gemini CLI
+
+```json
+{
+  "mcpServers": {
+    "env-secrets": {
+      "command": "npx",
+      "args": ["-y", "env-secrets", "mcp"],
+      "env": { "AWS_REGION": "us-east-1" }
+    }
+  }
+}
+```
+
+---
+
+## Available Tools
+
+### `list_secrets`
+
+Lists secret names in AWS Secrets Manager. Accepts an optional prefix to filter results. **Never returns values.**
+
+**Parameters:**
+
+| Parameter | Required | Description                   |
+| --------- | -------- | ----------------------------- |
+| `prefix`  |          | Filter secrets by name prefix |
+| `region`  |          | AWS region                    |
+| `profile` |          | AWS profile name              |
+
+**Example — list all secrets:**
+
+```json
+{
+  "name": "list_secrets",
+  "arguments": {}
+}
+```
+
+**Response:**
+
+```json
+[
+  {
+    "name": "my-app/prod",
+    "description": "Production secrets",
+    "lastChangedDate": "2024-06-01T12:00:00.000Z"
+  },
+  {
+    "name": "my-app/staging",
+    "description": null,
+    "lastChangedDate": "2024-05-15T09:30:00.000Z"
+  }
+]
+```
+
+**Example — filter by prefix:**
+
+```json
+{
+  "name": "list_secrets",
+  "arguments": {
+    "prefix": "my-app/",
+    "region": "us-east-1"
+  }
+}
+```
+
+**Response:**
+
+```json
+[
+  {
+    "name": "my-app/prod",
+    "lastChangedDate": "2024-06-01T12:00:00.000Z"
+  },
+  {
+    "name": "my-app/staging",
+    "lastChangedDate": "2024-05-15T09:30:00.000Z"
+  }
+]
+```
+
+---
+
+### `describe_secret`
+
+Returns metadata about a specific secret — ARN, creation date, last-changed date, version IDs, and description. **Never returns the secret value.**
+
+**Parameters:**
+
+| Parameter     | Required | Description      |
+| ------------- | -------- | ---------------- |
+| `secret_name` | ✅       | Secret name      |
+| `region`      |          | AWS region       |
+| `profile`     |          | AWS profile name |
+
+**Example:**
+
+```json
+{
+  "name": "describe_secret",
+  "arguments": {
+    "secret_name": "my-app/prod",
+    "region": "us-east-1"
+  }
+}
+```
+
+**Response:**
+
+```json
+{
+  "name": "my-app/prod",
+  "arn": "arn:aws:secretsmanager:us-east-1:123456789012:secret:my-app/prod-AbCdEf",
+  "description": "Production credentials for my-app",
+  "createdDate": "2024-01-01T00:00:00.000Z",
+  "lastChangedDate": "2024-06-01T12:00:00.000Z",
+  "lastAccessedDate": "2024-06-10T00:00:00.000Z",
+  "versionIdsToStages": {
+    "abc123": ["AWSCURRENT"],
+    "def456": ["AWSPREVIOUS"]
+  }
+}
+```
+
+---
+
+### `get_command`
+
+Returns a ready-to-run `env-secrets` CLI command string for the requested action. No secret values are ever included. The agent hands you the command; you run it in your terminal.
+
+**Parameters:**
+
+| Parameter     | Required | Description                                                                    |
+| ------------- | -------- | ------------------------------------------------------------------------------ |
+| `action`      | ✅       | One of `get`, `set`, `list`, `describe`                                        |
+| `secret_name` |          | Secret name (required for `get`, `set`, `describe`; used as prefix for `list`) |
+| `key`         |          | Key name (required for `set` action)                                           |
+| `region`      |          | AWS region flag value                                                          |
+| `profile`     |          | AWS profile flag value                                                         |
+
+**Example — get command to inject secrets into a process:**
+
+```json
+{
+  "name": "get_command",
+  "arguments": {
+    "action": "get",
+    "secret_name": "my-app/prod",
+    "region": "us-east-1"
+  }
+}
+```
+
+**Response:**
+
+```
+env-secrets aws -s 'my-app/prod' --region 'us-east-1' -- <your-program>
+```
+
+**Example — get command to set a key:**
+
+```json
+{
+  "name": "get_command",
+  "arguments": {
+    "action": "set",
+    "secret_name": "my-app/prod",
+    "key": "DATABASE_URL",
+    "region": "us-east-1"
+  }
+}
+```
+
+**Response:**
+
+```
+printf 'your-value' | env-secrets aws secret append -n 'my-app/prod' --key 'DATABASE_URL' --value-stdin --region 'us-east-1'
+```
+
+The `set` command uses `--value-stdin` so the value is piped in by you and never enters the agent stream. Replace `'your-value'` with `read -rs` to also keep it out of shell history:
+
+```bash
+read -rs VALUE && printf '%s' "$VALUE" | env-secrets aws secret append -n 'my-app/prod' --key 'DATABASE_URL' --value-stdin
+```
+
+**Example — get command to list secrets:**
+
+```json
+{
+  "name": "get_command",
+  "arguments": {
+    "action": "list",
+    "secret_name": "my-app/"
+  }
+}
+```
+
+**Response:**
+
+```
+env-secrets aws secret list --prefix 'my-app/'
+```
+
+**Example — get command to describe a secret:**
+
+```json
+{
+  "name": "get_command",
+  "arguments": {
+    "action": "describe",
+    "secret_name": "my-app/prod"
+  }
+}
+```
+
+**Response:**
+
+```
+env-secrets aws secret get -n 'my-app/prod'
+```
+
+**All `get_command` actions at a glance:**
+
+| Action     | Returns                                                                                           |
+| ---------- | ------------------------------------------------------------------------------------------------- |
+| `get`      | `env-secrets aws -s 'my-app/prod' -- <your-program>`                                              |
+| `set`      | `printf 'your-value' \| env-secrets aws secret append -n 'my-app/prod' --key 'KEY' --value-stdin` |
+| `list`     | `env-secrets aws secret list --prefix 'my-app/'`                                                  |
+| `describe` | `env-secrets aws secret get -n 'my-app/prod'`                                                     |
+
+---
+
+## Example Agent Workflows
+
+### Workflow 1 — Discover and inspect secrets before a deployment
+
+> **Prompt:** "List our production secrets and tell me which ones have changed in the last month."
+
+The agent calls `list_secrets` with prefix `prod/`, then calls `describe_secret` for each result to check `lastChangedDate`. It reports back without ever seeing any values.
+
+```
+Agent → list_secrets({ prefix: "prod/" })
+      ← [{ name: "prod/api", lastChangedDate: "..." }, ...]
+
+Agent → describe_secret({ secret_name: "prod/api" })
+      ← { lastChangedDate: "2024-06-01T...", ... }
+
+Agent → "prod/api was last changed June 1st. prod/db hasn't changed since March."
+```
+
+---
+
+### Workflow 2 — Rotate a secret key
+
+> **Prompt:** "Help me rotate the DATABASE_URL in my-app/prod."
+
+The agent uses `get_command` to produce the update command. You run it in your terminal — the new value never touches the agent.
+
+```
+Agent → get_command({ action: "set", secret_name: "my-app/prod", key: "DATABASE_URL" })
+      ← "printf 'your-value' | env-secrets aws secret append -n 'my-app/prod' --key 'DATABASE_URL' --value-stdin"
+
+Agent → "Run this command in your terminal and paste in the new DATABASE_URL when prompted:"
+        printf 'your-value' | env-secrets aws secret append -n 'my-app/prod' --key 'DATABASE_URL' --value-stdin
+
+You  → (runs command, types new URL, presses Enter)
+```
+
+For even better security, use `read` so the value doesn't appear in shell history at all:
+
+```bash
+read -rs VALUE && printf '%s' "$VALUE" | env-secrets aws secret append -n 'my-app/prod' --key 'DATABASE_URL' --value-stdin
+```
+
+---
+
+### Workflow 3 — Run an app with injected secrets
+
+> **Prompt:** "Give me the command to start the Node.js server with the my-app/prod secrets."
+
+```
+Agent → get_command({ action: "get", secret_name: "my-app/prod", region: "us-east-1" })
+      ← "env-secrets aws -s 'my-app/prod' --region 'us-east-1' -- <your-program>"
+
+Agent → "Replace <your-program> with your start command:"
+        env-secrets aws -s 'my-app/prod' --region 'us-east-1' -- node server.js
+```
+
+When you run this, secrets are injected as environment variables into the `node server.js` process only — they never appear in the agent conversation.
+
+---
+
+### Workflow 4 — Audit which secrets exist for a new team member
+
+> **Prompt:** "What secrets does our staging environment use?"
+
+```
+Agent → list_secrets({ prefix: "staging/" })
+      ← [
+           { name: "staging/db", lastChangedDate: "..." },
+           { name: "staging/api-keys", lastChangedDate: "..." },
+           { name: "staging/stripe", lastChangedDate: "..." }
+         ]
+
+Agent → describe_secret({ secret_name: "staging/db" })
+      ← { description: "PostgreSQL connection string for staging", ... }
+
+Agent → "Your staging environment has 3 secrets: staging/db (PostgreSQL connection),
+         staging/api-keys (last updated 2 weeks ago), and staging/stripe."
+```
+
+---
+
+## AWS Credentials
+
+The MCP server uses the standard AWS credential chain — environment variables, `~/.aws/credentials`, IAM roles, instance profiles, etc. No new auth configuration is needed beyond what you already use for the `env-secrets` CLI.
+
+Set `AWS_REGION` in the MCP server `env` block, or pass `region` per tool call. The `profile` parameter selects a named AWS profile from `~/.aws/credentials`.
+
+---
+
+## Frequently Asked Questions
+
+**Why can't the agent read secret values directly?**
+
+If values were returned to the agent, they would appear in the conversation transcript, the model's context window, and potentially in logs. By keeping values out of the agent entirely, you get a stronger security boundary — the agent can reason about _which_ secrets exist and _how_ to use them without ever _seeing_ what they contain.
+
+**How do I read a secret value myself?**
+
+Run `env-secrets aws secret value` directly in your terminal (not via the agent):
+
+```bash
+env-secrets aws secret value -n my-app/prod --reveal
+```
+
+Or inject the secret directly into a process without ever displaying the values:
+
+```bash
+env-secrets aws -s my-app/prod -- printenv DATABASE_URL
+```
+
+**What if I need the agent to use a secret value in a command it constructs?**
+
+Use `get_command` with `action: "get"` to get an inject command, then substitute your actual command:
+
+```bash
+env-secrets aws -s 'my-app/prod' -- curl -H "Authorization: Bearer $API_KEY" https://api.example.com
+```
+
+The secret is injected as an environment variable into the subprocess — it never needs to appear in the agent's output.
+
+**Does this work in CI or non-interactive environments?**
+
+Yes. `list_secrets`, `describe_secret`, and `get_command` all work without a TTY. For `set` operations in CI, use `--value-stdin` piped from a secrets store or environment variable:
+
+```bash
+echo "$NEW_API_KEY" | env-secrets aws secret append -n my-app/prod --key API_KEY --value-stdin
+```

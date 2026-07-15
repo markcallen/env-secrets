@@ -276,6 +276,64 @@ env-secrets aws secret value -n app/dev -r us-east-1 --reveal
 env-secrets aws secret value -n app/dev -r us-east-1 --output json
 ```
 
+## MCP Server (AI Agent Integration)
+
+The `env-secrets` MCP server lets AI agents (Claude Code, OpenAI Codex, Gemini CLI, and others) work with AWS Secrets Manager secrets — **without secret values ever entering the agent's context**.
+
+### Quick Setup
+
+Add to your agent's MCP config (example for Claude Code `~/.claude/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "env-secrets": {
+      "command": "npx",
+      "args": ["-y", "env-secrets", "mcp"],
+      "env": { "AWS_REGION": "us-east-1" }
+    }
+  }
+}
+```
+
+### Available Tools
+
+| Tool              | Description                                      | Values exposed? |
+| ----------------- | ------------------------------------------------ | --------------- |
+| `list_secrets`    | List secret names with optional prefix filter    | ❌ No           |
+| `describe_secret` | Get ARN, dates, and metadata for a secret        | ❌ No           |
+| `get_command`     | Generate a ready-to-run `env-secrets` CLI string | ❌ No           |
+
+### Example Interactions
+
+**Ask the agent to list your secrets:**
+
+> "What secrets do we have under the `my-app/` prefix?"
+
+The agent calls `list_secrets({ prefix: "my-app/" })` and reports names and last-changed dates — no values.
+
+**Ask the agent to help rotate a key:**
+
+> "Give me the command to update DATABASE_URL in my-app/prod."
+
+The agent calls `get_command({ action: "set", secret_name: "my-app/prod", key: "DATABASE_URL" })` and returns:
+
+```bash
+printf 'your-value' | env-secrets aws secret append -n 'my-app/prod' --key 'DATABASE_URL' --value-stdin
+```
+
+You run this yourself — the new value never passes through the agent.
+
+**Ask the agent for the command to run your app with secrets injected:**
+
+> "How do I start my Node.js server with the production secrets?"
+
+```bash
+env-secrets aws -s 'my-app/prod' --region 'us-east-1' -- node server.js
+```
+
+For full documentation and more examples, see the [MCP Server docs](https://markcallen.github.io/env-secrets/mcp) or [`docs/MCP.md`](docs/MCP.md).
+
 ## Security Considerations
 
 - 🔐 **Credential Management**: The tool respects AWS credential precedence (environment variables, IAM roles, profiles)
@@ -491,6 +549,55 @@ awslocal secretsmanager list-secrets
 awslocal secretsmanager get-secret-value \
  --secret-id local/sample
 
+```
+
+### MCP Server Local Development
+
+To develop or test the MCP server locally, build the project first and then generate a `.mcp.json` that points at your local build:
+
+```bash
+yarn build
+yarn mcp:config
+```
+
+`yarn mcp:config` writes `.mcp.json` in the repo root with an absolute path to `dist/mcp/index.js` on your machine:
+
+```json
+{
+  "mcpServers": {
+    "env-secrets": {
+      "command": "node",
+      "args": ["/your/path/to/env-secrets/dist/mcp/index.js"]
+    }
+  }
+}
+```
+
+Re-run `yarn mcp:config` whenever the path changes (e.g. after moving the repo). The file is gitignored — each developer generates their own copy.
+
+To test the MCP server directly over stdio:
+
+```bash
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}' | node dist/mcp/index.js
+```
+
+To verify the `mcp` CLI subcommand works end-to-end:
+
+```bash
+node dist/index.js mcp --help
+```
+
+For published releases, users can point their agent at the npm package instead of a local build:
+
+```json
+{
+  "mcpServers": {
+    "env-secrets": {
+      "command": "npx",
+      "args": ["-y", "env-secrets", "mcp"]
+    }
+  }
+}
 ```
 
 ### Devpod Setup
