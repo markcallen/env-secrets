@@ -89,15 +89,16 @@ export type TtyReader = (prompt: string) => Promise<string>;
 
 const readLineFromTty: TtyReader = (prompt: string): Promise<string> => {
   return new Promise((resolve, reject) => {
-    let ttyFd: number | null = null;
-    let ttyStream: fs.ReadStream | null = null;
     let input: NodeJS.ReadableStream;
 
     // openSync throws synchronously if /dev/tty cannot be opened, making the
     // try/catch reliable — unlike createReadStream which emits errors asynchronously.
     try {
-      ttyFd = fs.openSync('/dev/tty', 'r');
-      ttyStream = fs.createReadStream('', { fd: ttyFd, autoClose: false });
+      const ttyFd = fs.openSync('/dev/tty', 'r');
+      const ttyStream = fs.createReadStream('', { fd: ttyFd });
+      // Suppress EBADF errors emitted when readline destroys the stream on close.
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      ttyStream.on('error', () => {});
       input = ttyStream;
     } catch {
       if (process.stdin.isTTY) {
@@ -120,18 +121,6 @@ const readLineFromTty: TtyReader = (prompt: string): Promise<string> => {
       terminal: true
     });
 
-    const cleanup = () => {
-      ttyStream?.destroy();
-      if (ttyFd !== null) {
-        try {
-          fs.closeSync(ttyFd);
-        } catch {
-          // ignore close errors
-        }
-        ttyFd = null;
-      }
-    };
-
     // Suppress echo — well-known readline pattern for secure prompts
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (rl as any)._writeToOutput = (str: string) => {
@@ -143,13 +132,11 @@ const readLineFromTty: TtyReader = (prompt: string): Promise<string> => {
     rl.question(prompt, (answer) => {
       output.write('\n');
       rl.close();
-      cleanup();
       resolve(answer);
     });
 
     rl.once('error', (err) => {
       rl.close();
-      cleanup();
       reject(err);
     });
   });
