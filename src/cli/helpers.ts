@@ -89,14 +89,27 @@ export type TtyReader = (prompt: string) => Promise<string>;
 
 const readLineFromTty: TtyReader = (prompt: string): Promise<string> => {
   return new Promise((resolve, reject) => {
+    let ttyFd: number | null = null;
     let ttyStream: fs.ReadStream | null = null;
     let input: NodeJS.ReadableStream;
 
+    // openSync throws synchronously if /dev/tty cannot be opened, making the
+    // try/catch reliable — unlike createReadStream which emits errors asynchronously.
     try {
-      ttyStream = fs.createReadStream('/dev/tty');
+      ttyFd = fs.openSync('/dev/tty', 'r');
+      ttyStream = fs.createReadStream('', { fd: ttyFd, autoClose: false });
       input = ttyStream;
     } catch {
-      input = process.stdin;
+      if (process.stdin.isTTY) {
+        input = process.stdin;
+      } else {
+        reject(
+          new Error(
+            '--prompt requires an interactive terminal. No TTY is available.'
+          )
+        );
+        return;
+      }
     }
 
     const output = process.stderr;
@@ -106,6 +119,18 @@ const readLineFromTty: TtyReader = (prompt: string): Promise<string> => {
       output,
       terminal: true
     });
+
+    const cleanup = () => {
+      ttyStream?.destroy();
+      if (ttyFd !== null) {
+        try {
+          fs.closeSync(ttyFd);
+        } catch {
+          // ignore close errors
+        }
+        ttyFd = null;
+      }
+    };
 
     // Suppress echo — well-known readline pattern for secure prompts
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -118,13 +143,13 @@ const readLineFromTty: TtyReader = (prompt: string): Promise<string> => {
     rl.question(prompt, (answer) => {
       output.write('\n');
       rl.close();
-      ttyStream?.destroy();
+      cleanup();
       resolve(answer);
     });
 
     rl.once('error', (err) => {
       rl.close();
-      ttyStream?.destroy();
+      cleanup();
       reject(err);
     });
   });
@@ -186,6 +211,10 @@ export const resolveSecretValue = async (
   valueConfirm?: boolean,
   ttyReader?: TtyReader
 ): Promise<string | undefined> => {
+  if (valueConfirm && !valuePrompt) {
+    throw new Error('--confirm requires --prompt.');
+  }
+
   const providedSources = [
     value !== undefined,
     valueStdin === true,

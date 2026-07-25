@@ -114,6 +114,12 @@ describe('cli/helpers', () => {
     );
   });
 
+  it('rejects --confirm when --prompt is not set', async () => {
+    await expect(
+      resolveSecretValue('inline', false, undefined, false, true)
+    ).rejects.toThrow('--confirm requires --prompt.');
+  });
+
   it('rejects stdin mode when no stdin is provided', async () => {
     const originalStdin = process.stdin;
     Object.defineProperty(process, 'stdin', {
