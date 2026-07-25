@@ -93,10 +93,12 @@ const readLineFromTty: TtyReader = (prompt: string): Promise<string> => {
 
     // openSync throws synchronously if /dev/tty cannot be opened, making the
     // try/catch reliable — unlike createReadStream which emits errors asynchronously.
+    let ttyStream: fs.ReadStream | null = null;
+
     try {
       const ttyFd = fs.openSync('/dev/tty', 'r');
-      const ttyStream = fs.createReadStream('', { fd: ttyFd });
-      // Suppress EBADF errors emitted when readline destroys the stream on close.
+      ttyStream = fs.createReadStream('', { fd: ttyFd });
+      // Suppress EBADF that can be emitted when the stream is destroyed.
       // eslint-disable-next-line @typescript-eslint/no-empty-function
       ttyStream.on('error', () => {});
       input = ttyStream;
@@ -129,14 +131,18 @@ const readLineFromTty: TtyReader = (prompt: string): Promise<string> => {
       }
     };
 
+    // readline.close() only pauses the stream; destroy it explicitly so the
+    // open fd does not keep the event loop alive after the prompt resolves.
     rl.question(prompt, (answer) => {
       output.write('\n');
       rl.close();
+      ttyStream?.destroy();
       resolve(answer);
     });
 
     rl.once('error', (err) => {
       rl.close();
+      ttyStream?.destroy();
       reject(err);
     });
   });
