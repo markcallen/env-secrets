@@ -202,6 +202,8 @@ secretCommand
   .option('-v, --value <value>', 'secret value')
   .option('--value-stdin', 'read secret value from stdin')
   .option('-f, --file <path>', 'read secret value from local file')
+  .option('--prompt', 'prompt for secret value securely (no echo)')
+  .option('--confirm', 'confirm the prompted value by entering it twice')
   .option('-d, --description <description>', 'secret description')
   .option('-k, --kms-key-id <kmsKeyId>', 'kms key id')
   .option('-t, --tag <tag...>', 'tag in key=value format')
@@ -215,11 +217,13 @@ secretCommand
       const value = await resolveSecretValue(
         options.value,
         options.valueStdin,
-        options.file
+        options.file,
+        options.prompt,
+        options.confirm
       );
       if (!value) {
         throw new Error(
-          'Secret value is required. Provide --value, --value-stdin, or --file.'
+          'Secret value is required. Provide --value, --value-stdin, --file, or --prompt.'
         );
       }
 
@@ -255,6 +259,8 @@ secretCommand
   .option('-v, --value <value>', 'new secret value')
   .option('--value-stdin', 'read secret value from stdin')
   .option('-f, --file <path>', 'read secret value from local file')
+  .option('--prompt', 'prompt for secret value securely (no echo)')
+  .option('--confirm', 'confirm the prompted value by entering it twice')
   .option('-d, --description <description>', 'secret description')
   .option('-k, --kms-key-id <kmsKeyId>', 'kms key id')
   .option('-p, --profile <profile>', 'profile to use')
@@ -267,11 +273,13 @@ secretCommand
       const value = await resolveSecretValue(
         options.value,
         options.valueStdin,
-        options.file
+        options.file,
+        options.prompt,
+        options.confirm
       );
       if (!value && !options.description && !options.kmsKeyId) {
         throw new Error(
-          'Nothing to update. Provide --value/--value-stdin/--file, --description, or --kms-key-id.'
+          'Nothing to update. Provide --value/--value-stdin/--file/--prompt, --description, or --kms-key-id.'
         );
       }
 
@@ -466,6 +474,8 @@ secretCommand
   .option('-v, --value <value>', 'value for the key')
   .option('--value-stdin', 'read value from stdin')
   .option('-f, --file <path>', 'read value from local file')
+  .option('--prompt', 'prompt for value securely (no echo)')
+  .option('--confirm', 'confirm the prompted value by entering it twice')
   .option('-p, --profile <profile>', 'profile to use')
   .option('-r, --region <region>', 'region to use')
   .option('--output <format>', 'output format: json|table')
@@ -476,11 +486,13 @@ secretCommand
       const value = await resolveSecretValue(
         options.value,
         options.valueStdin,
-        options.file
+        options.file,
+        options.prompt,
+        options.confirm
       );
       if (!value) {
         throw new Error(
-          'Append value is required. Provide --value, --value-stdin, or --file.'
+          'Append value is required. Provide --value, --value-stdin, --file, or --prompt.'
         );
       }
 

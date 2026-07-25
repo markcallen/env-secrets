@@ -1,4 +1,6 @@
+import * as fs from 'node:fs';
 import { readFile } from 'node:fs/promises';
+import * as readline from 'node:readline';
 
 export type OutputFormat = 'json' | 'table';
 export interface AwsScopeOptions {
@@ -83,6 +85,68 @@ export const parseRecoveryDays = (value: string) => {
   return parsed;
 };
 
+export type TtyReader = (prompt: string) => Promise<string>;
+
+const readLineFromTty: TtyReader = (prompt: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    let ttyStream: fs.ReadStream | null = null;
+    let input: NodeJS.ReadableStream;
+
+    try {
+      ttyStream = fs.createReadStream('/dev/tty');
+      input = ttyStream;
+    } catch {
+      input = process.stdin;
+    }
+
+    const output = process.stderr;
+
+    const rl = readline.createInterface({
+      input: input as NodeJS.ReadStream,
+      output,
+      terminal: true
+    });
+
+    // Suppress echo — well-known readline pattern for secure prompts
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (rl as any)._writeToOutput = (str: string) => {
+      if (str === prompt) {
+        output.write(str);
+      }
+    };
+
+    rl.question(prompt, (answer) => {
+      output.write('\n');
+      rl.close();
+      ttyStream?.destroy();
+      resolve(answer);
+    });
+
+    rl.once('error', (err) => {
+      rl.close();
+      ttyStream?.destroy();
+      reject(err);
+    });
+  });
+};
+
+export const promptForValue = async (
+  promptText: string,
+  confirmText?: string,
+  ttyReader: TtyReader = readLineFromTty
+): Promise<string> => {
+  const value = await ttyReader(promptText);
+
+  if (confirmText !== undefined) {
+    const confirm = await ttyReader(confirmText);
+    if (value !== confirm) {
+      throw new Error('Values do not match.');
+    }
+  }
+
+  return value;
+};
+
 export const readStdin = async (stdin: NodeJS.ReadStream = process.stdin) => {
   const chunks: Buffer[] = [];
 
@@ -117,16 +181,20 @@ export const readStdin = async (stdin: NodeJS.ReadStream = process.stdin) => {
 export const resolveSecretValue = async (
   value?: string,
   valueStdin?: boolean,
-  valueFile?: string
+  valueFile?: string,
+  valuePrompt?: boolean,
+  valueConfirm?: boolean,
+  ttyReader?: TtyReader
 ): Promise<string | undefined> => {
   const providedSources = [
     value !== undefined,
     valueStdin === true,
-    valueFile !== undefined
+    valueFile !== undefined,
+    valuePrompt === true
   ].filter(Boolean).length;
   if (providedSources > 1) {
     throw new Error(
-      'Use only one secret value source: --value, --value-stdin, or --file.'
+      'Use only one secret value source: --value, --value-stdin, --file, or --prompt.'
     );
   }
 
@@ -142,6 +210,14 @@ export const resolveSecretValue = async (
   if (valueFile) {
     const content = await readFile(valueFile, 'utf8');
     return content.replace(/\r?\n$/, '');
+  }
+
+  if (valuePrompt) {
+    return await promptForValue(
+      'Enter value: ',
+      valueConfirm ? 'Confirm value: ' : undefined,
+      ttyReader
+    );
   }
 
   return value;

@@ -259,9 +259,20 @@ env-secrets aws secret upsert --file .env --name app/dev --output json
 # Add or overwrite one key
 env-secrets aws secret append -n app/dev --key JIRA_EMAIL_TOKEN -v blah --output json
 
+# Add a key securely — prompts on the terminal with no echo (value never in shell history)
+env-secrets aws secret append -n app/dev --key GITHUB_PAT --prompt
+
+# Same with confirmation (prompted twice to catch typos)
+env-secrets aws secret append -n app/dev --key GITHUB_PAT --prompt --confirm
+
 # Remove one or more keys
 env-secrets aws secret remove -n app/dev --key API_KEY --key OLD_TOKEN --output json
 ```
+
+The `--prompt` flag reads the value directly from `/dev/tty` with echo suppressed, so the
+value never appears in shell history, process arguments, or the terminal. Use `--confirm`
+to enter the value twice and catch typos. Both flags work the same way on `secret create`
+and `secret update`.
 
 13. **View the values of a secret:**
 
@@ -319,10 +330,11 @@ The agent calls `list_secrets({ prefix: "my-app/" })` and reports names and last
 The agent calls `get_command({ action: "set", secret_name: "my-app/prod", key: "DATABASE_URL" })` and returns:
 
 ```bash
-printf 'your-value' | env-secrets aws secret append -n 'my-app/prod' --key 'DATABASE_URL' --value-stdin
+env-secrets aws secret append -n 'my-app/prod' --key 'DATABASE_URL' --prompt
 ```
 
-You run this yourself — the new value never passes through the agent.
+You run this yourself — the new value never passes through the agent. The `--prompt` flag
+reads the value securely from your terminal with no echo.
 
 **Ask the agent for the command to run your app with secrets injected:**
 
