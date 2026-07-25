@@ -142,7 +142,7 @@ describe('cli/helpers', () => {
     await expect(
       resolveSecretValue(undefined, false, undefined, true, false, mockReader)
     ).resolves.toBe('prompted-value');
-    expect(mockReader).toHaveBeenCalledWith('Enter value: ');
+    expect(mockReader).toHaveBeenCalledWith('New value for secret: ');
   });
 
   it('resolves with confirmation when --confirm is set', async () => {
@@ -154,8 +154,22 @@ describe('cli/helpers', () => {
       resolveSecretValue(undefined, false, undefined, true, true, mockReader)
     ).resolves.toBe('my-secret');
     expect(mockReader).toHaveBeenCalledTimes(2);
-    expect(mockReader).toHaveBeenNthCalledWith(1, 'Enter value: ');
+    expect(mockReader).toHaveBeenNthCalledWith(1, 'New value for secret: ');
     expect(mockReader).toHaveBeenNthCalledWith(2, 'Confirm value: ');
+  });
+
+  it('uses promptLabel in the prompt text when provided', async () => {
+    const mockReader = jest.fn().mockResolvedValue('val');
+    await resolveSecretValue(
+      undefined,
+      false,
+      undefined,
+      true,
+      false,
+      mockReader,
+      'GITHUB_PAT'
+    );
+    expect(mockReader).toHaveBeenCalledWith('New value for GITHUB_PAT: ');
   });
 
   it('rejects when confirmed values do not match', async () => {

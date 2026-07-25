@@ -202,7 +202,8 @@ export const resolveSecretValue = async (
   valueFile?: string,
   valuePrompt?: boolean,
   valueConfirm?: boolean,
-  ttyReader?: TtyReader
+  ttyReader?: TtyReader,
+  promptLabel?: string
 ): Promise<string | undefined> => {
   if (valueConfirm && !valuePrompt) {
     throw new Error('--confirm requires --prompt.');
@@ -236,7 +237,7 @@ export const resolveSecretValue = async (
 
   if (valuePrompt) {
     return await promptForValue(
-      'Enter value: ',
+      `New value for ${promptLabel ?? 'secret'}: `,
       valueConfirm ? 'Confirm value: ' : undefined,
       ttyReader
     );

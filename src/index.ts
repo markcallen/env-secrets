@@ -488,7 +488,9 @@ secretCommand
         options.valueStdin,
         options.file,
         options.prompt,
-        options.confirm
+        options.confirm,
+        undefined,
+        options.key
       );
       if (!value) {
         throw new Error(
