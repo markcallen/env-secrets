@@ -130,12 +130,26 @@ const awsCommand = program
     'run program directly without a shell (disables shell expansion)'
   )
   .action(async (program, options) => {
-    const config = options.secret ? undefined : loadConfig();
+    let config;
+    try {
+      config = loadConfig();
+    } catch (err) {
+      exitWithError(err);
+      return;
+    }
+
+    if (config?.provider && config.provider !== 'aws') {
+      exitWithError(
+        new Error(
+          `Config "provider" is "${config.provider}" but this is the aws command. Set provider to "aws" or remove the field.`
+        )
+      );
+    }
 
     if (!options.secret && !config?.secrets?.length) {
       exitWithError(
         new Error(
-          'Missing required option --secret for this command. Alternatively, create a .env-secrets.yml config file.'
+          'Missing required option --secret for this command. Alternatively, create a .env-secrets.yml, .env-secrets.yaml, or .env-secrets.json config file in the current directory or your home directory.'
         )
       );
     }
