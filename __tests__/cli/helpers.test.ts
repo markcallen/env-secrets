@@ -9,6 +9,7 @@ import {
   parseEnvSecrets,
   parseRecoveryDays,
   printData,
+  promptForValue,
   readStdin,
   renderTable,
   resolveAwsScope,
@@ -79,7 +80,7 @@ describe('cli/helpers', () => {
 
   it('rejects when both --value and --value-stdin are used', async () => {
     await expect(resolveSecretValue('inline', true)).rejects.toThrow(
-      'Use only one secret value source: --value, --value-stdin, or --file.'
+      'Use only one secret value source: --value, --value-stdin, --file, or --prompt.'
     );
   });
 
@@ -87,7 +88,7 @@ describe('cli/helpers', () => {
     await expect(
       resolveSecretValue(undefined, true, './secret.txt')
     ).rejects.toThrow(
-      'Use only one secret value source: --value, --value-stdin, or --file.'
+      'Use only one secret value source: --value, --value-stdin, --file, or --prompt.'
     );
   });
 
@@ -95,14 +96,28 @@ describe('cli/helpers', () => {
     await expect(
       resolveSecretValue('inline', false, './secret.txt')
     ).rejects.toThrow(
-      'Use only one secret value source: --value, --value-stdin, or --file.'
+      'Use only one secret value source: --value, --value-stdin, --file, or --prompt.'
     );
   });
 
   it('treats explicit empty --value as provided for mutual exclusion', async () => {
     await expect(resolveSecretValue('', false, './secret.txt')).rejects.toThrow(
-      'Use only one secret value source: --value, --value-stdin, or --file.'
+      'Use only one secret value source: --value, --value-stdin, --file, or --prompt.'
     );
+  });
+
+  it('rejects when --prompt and --value are used together', async () => {
+    await expect(
+      resolveSecretValue('inline', false, undefined, true)
+    ).rejects.toThrow(
+      'Use only one secret value source: --value, --value-stdin, --file, or --prompt.'
+    );
+  });
+
+  it('rejects --confirm when --prompt is not set', async () => {
+    await expect(
+      resolveSecretValue('inline', false, undefined, false, true)
+    ).rejects.toThrow('--confirm requires --prompt.');
   });
 
   it('rejects stdin mode when no stdin is provided', async () => {
@@ -119,6 +134,88 @@ describe('cli/helpers', () => {
     Object.defineProperty(process, 'stdin', {
       value: originalStdin,
       configurable: true
+    });
+  });
+
+  it('resolves secret value via --prompt using injected ttyReader', async () => {
+    const mockReader = jest.fn().mockResolvedValue('prompted-value');
+    await expect(
+      resolveSecretValue(undefined, false, undefined, true, false, mockReader)
+    ).resolves.toBe('prompted-value');
+    expect(mockReader).toHaveBeenCalledWith('New value for secret: ');
+  });
+
+  it('resolves with confirmation when --confirm is set', async () => {
+    const mockReader = jest
+      .fn()
+      .mockResolvedValueOnce('my-secret')
+      .mockResolvedValueOnce('my-secret');
+    await expect(
+      resolveSecretValue(undefined, false, undefined, true, true, mockReader)
+    ).resolves.toBe('my-secret');
+    expect(mockReader).toHaveBeenCalledTimes(2);
+    expect(mockReader).toHaveBeenNthCalledWith(1, 'New value for secret: ');
+    expect(mockReader).toHaveBeenNthCalledWith(2, 'Confirm value: ');
+  });
+
+  it('uses promptLabel in the prompt text when provided', async () => {
+    const mockReader = jest.fn().mockResolvedValue('val');
+    await resolveSecretValue(
+      undefined,
+      false,
+      undefined,
+      true,
+      false,
+      mockReader,
+      'GITHUB_PAT'
+    );
+    expect(mockReader).toHaveBeenCalledWith('New value for GITHUB_PAT: ');
+  });
+
+  it('rejects when confirmed values do not match', async () => {
+    const mockReader = jest
+      .fn()
+      .mockResolvedValueOnce('value-a')
+      .mockResolvedValueOnce('value-b');
+    await expect(
+      resolveSecretValue(undefined, false, undefined, true, true, mockReader)
+    ).rejects.toThrow('Values do not match.');
+  });
+
+  describe('promptForValue', () => {
+    it('returns the value from the ttyReader', async () => {
+      const mockReader = jest.fn().mockResolvedValue('secure-value');
+      await expect(
+        promptForValue('Enter value: ', undefined, mockReader)
+      ).resolves.toBe('secure-value');
+      expect(mockReader).toHaveBeenCalledWith('Enter value: ');
+    });
+
+    it('confirms matching values and returns the value', async () => {
+      const mockReader = jest
+        .fn()
+        .mockResolvedValueOnce('secret')
+        .mockResolvedValueOnce('secret');
+      await expect(
+        promptForValue('Enter value: ', 'Confirm value: ', mockReader)
+      ).resolves.toBe('secret');
+      expect(mockReader).toHaveBeenCalledTimes(2);
+    });
+
+    it('throws when confirmed values do not match', async () => {
+      const mockReader = jest
+        .fn()
+        .mockResolvedValueOnce('abc')
+        .mockResolvedValueOnce('xyz');
+      await expect(
+        promptForValue('Enter value: ', 'Confirm value: ', mockReader)
+      ).rejects.toThrow('Values do not match.');
+    });
+
+    it('skips confirmation when confirmText is not provided', async () => {
+      const mockReader = jest.fn().mockResolvedValue('only-once');
+      await promptForValue('Enter value: ', undefined, mockReader);
+      expect(mockReader).toHaveBeenCalledTimes(1);
     });
   });
 

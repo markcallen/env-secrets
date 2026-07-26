@@ -98,9 +98,8 @@ Returns a ready-to-run `env-secrets` CLI command string for the requested action
 # get — injects secrets as env vars into a subprocess; values never touch the agent
 env-secrets aws -s 'my-app/prod' --region 'us-east-1' -- <your-program>
 
-# set — replace 'your-value' with the actual value, or use read -rs to keep it out of shell history:
-# read -rs VALUE && printf '%s' "$VALUE" | env-secrets aws secret append -n 'my-app/prod' --key 'DATABASE_URL' --value-stdin
-printf 'your-value' | env-secrets aws secret append -n 'my-app/prod' --key 'DATABASE_URL' --value-stdin
+# set — prompts securely with no echo; value never enters shell history or process args
+env-secrets aws secret append -n 'my-app/prod' --key 'DATABASE_URL' --prompt
 
 # list
 env-secrets aws secret list --prefix 'my-app/'
@@ -202,6 +201,6 @@ Set `AWS_REGION` in the `env` block of your MCP server config, or pass `region` 
 
 - **Secret values never enter the agent context.** The MCP server exposes only metadata (`list_secrets`, `describe_secret`) and CLI command strings (`get_command`). Actual secret values are handled entirely by the user in their terminal.
 - To read secrets into a process, use the `get` command returned by `get_command`: it injects secrets as environment variables into a subprocess without exposing them to the agent.
-- To write a secret, use the `set` command returned by `get_command`: it uses `--value-stdin` so the value is piped in by the user and never enters the agent stream. Use `read -rs VALUE && printf '%s' "$VALUE" | ...` instead of `printf 'your-value'` to also keep the value out of shell history.
+- To write a secret, use the `set` command returned by `get_command`: it uses `--prompt` so the value is entered interactively with no echo and never enters the agent stream, shell history, or process arguments.
 - No HTTP or SSE transport is available — stdio only, so the server is not exposed as a network service.
 - The server exits cleanly when stdin closes (host process terminated).

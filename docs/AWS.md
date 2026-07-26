@@ -215,7 +215,7 @@ source secrets.env
    echo -n 'super-secret-value' | env-secrets aws secret create -n my-app/dev/raw --value-stdin -r us-east-1
    ```
 
-   `create` and `update` accept `--value`, `--value-stdin`, or `--file` — use only one.
+   `create` and `update` accept `--value`, `--value-stdin`, `--file`, or `--prompt` — use only one.
 
 3. **Update an existing secret value:**
 
@@ -223,7 +223,7 @@ source secrets.env
    env-secrets aws secret update -n my-app/dev/api -v '{"API_KEY":"rotated"}' -r us-east-1
    ```
 
-   Optional flags: `-d/--description`, `-k/--kms-key-id`. Accepts `--value-stdin` or `--file` instead of `-v`.
+   Optional flags: `-d/--description`, `-k/--kms-key-id`. Accepts `--value-stdin`, `--file`, or `--prompt` instead of `-v`.
 
 4. **Upsert from an env file into one JSON secret (`export KEY=value` or `KEY=value`):**
 
@@ -249,8 +249,14 @@ source secrets.env
    # Update a single key (overwrites if it already exists; adds it if it does not)
    env-secrets aws secret append -n my-app/dev --key API_KEY -v new-value -r us-east-1
 
-   # Accepts --value-stdin or --file instead of -v
+   # Accepts --value-stdin, --file, or --prompt instead of -v
    env-secrets aws secret append -n my-app/dev --key API_KEY --value-stdin -r us-east-1
+
+   # Prompt securely (no echo, value never in shell history or process args)
+   env-secrets aws secret append -n my-app/dev --key GITHUB_PAT --prompt -r us-east-1
+
+   # Prompt with confirmation (enter twice to catch typos)
+   env-secrets aws secret append -n my-app/dev --key GITHUB_PAT --prompt --confirm -r us-east-1
 
    # Remove one key
    env-secrets aws secret remove -n my-app/dev --key OLD_TOKEN -r us-east-1
@@ -313,12 +319,13 @@ source secrets.env
 ### Secret Management Safety Notes
 
 - `delete` requires `--yes`. Use either `--recovery-days <7-30>` or `--force-delete-without-recovery`, not both.
-- `create`, `update`, and `append` accept `--value`, `--value-stdin`, or `--file` (use only one).
+- `create`, `update`, and `append` accept `--value`, `--value-stdin`, `--file`, or `--prompt` (use only one).
 - `create` always stores `SecretString` as a JSON object.
 - `append` and `remove` require the secret value to be a JSON object.
 - `remove` will error if it would leave the secret with zero keys — use `env-secrets aws secret delete` to remove the entire secret.
 - `upsert/import --file --name` parses `export KEY=value` and `KEY=value`, stores them as one JSON secret object, ignores blank lines/comments, and reports `created`, `updated`, `skipped`, and `failed`.
-- Use `--value-stdin` to avoid shell history leakage for sensitive values.
+- Use `--prompt` to enter sensitive values interactively with no echo — the value is read directly from the terminal and never appears in shell history, process arguments, or any pipe. Add `--confirm` to enter the value twice and catch typos.
+- Use `--value-stdin` for scripted or piped input when `--prompt` is not suitable.
 - `value` masks secret values as `****` in table output by default. Use `--reveal` to show them (prints a warning to stderr). JSON output always returns full values and warns when stdout is a terminal.
 
 ## Examples
