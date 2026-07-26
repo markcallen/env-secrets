@@ -43,6 +43,8 @@ jobs:
 
       - name: Install Node.js dependencies
         run: yarn
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Install Node.js dependencies
         run: yarn build
@@ -51,6 +53,7 @@ jobs:
         run: npx release-it ${{ inputs.release_type }} --ci
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Notify failures
         if: failure()
