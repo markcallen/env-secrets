@@ -98,9 +98,14 @@ const readLineFromTty: TtyReader = (prompt: string): Promise<string> => {
     try {
       const ttyFd = fs.openSync('/dev/tty', 'r');
       ttyStream = fs.createReadStream('', { fd: ttyFd });
-      // Suppress EBADF that can be emitted when the stream is destroyed.
-      // eslint-disable-next-line @typescript-eslint/no-empty-function
-      ttyStream.on('error', () => {});
+      // Only suppress EBADF emitted after destroy; reject on any other error.
+      ttyStream.on('error', (err: NodeJS.ErrnoException) => {
+        if (err.code !== 'EBADF') {
+          rl.close();
+          ttyStream?.destroy();
+          reject(err);
+        }
+      });
       input = ttyStream;
     } catch {
       if (process.stdin.isTTY) {
