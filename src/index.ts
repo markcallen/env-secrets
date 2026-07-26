@@ -29,6 +29,7 @@ import {
   resolveSecretValue
 } from './cli/helpers';
 import { objectToExport } from './vaults/utils';
+import { loadConfig, filterSecretKeys } from './config';
 
 const debug = Debug('env-secrets');
 
@@ -129,17 +130,49 @@ const awsCommand = program
     'run program directly without a shell (disables shell expansion)'
   )
   .action(async (program, options) => {
-    if (!options.secret) {
+    const config = options.secret ? undefined : loadConfig();
+
+    if (!options.secret && !config?.secrets?.length) {
       exitWithError(
-        new Error('Missing required option --secret for this command.')
+        new Error(
+          'Missing required option --secret for this command. Alternatively, create a .env-secrets.yml config file.'
+        )
       );
     }
 
-    const secrets = await secretsmanager(options);
-    debug(secrets);
-    const envSecrets = Object.fromEntries(
-      Object.entries(secrets).map(([key, value]) => [key, String(value)])
-    );
+    const effectiveProfile = options.profile || config?.profile;
+    const effectiveRegion = options.region || config?.region;
+
+    let envSecrets: Record<string, string> = {};
+
+    if (options.secret) {
+      const secrets = await secretsmanager({
+        secret: options.secret,
+        profile: effectiveProfile,
+        region: effectiveRegion
+      });
+      debug(secrets);
+      envSecrets = Object.fromEntries(
+        Object.entries(secrets).map(([key, value]) => [key, String(value)])
+      );
+    } else {
+      for (const secretEntry of config?.secrets ?? []) {
+        const secrets = await secretsmanager({
+          secret: secretEntry.name,
+          profile: effectiveProfile,
+          region: effectiveRegion
+        });
+        debug(secrets);
+        const filtered = filterSecretKeys(
+          secrets as Record<string, unknown>,
+          secretEntry.keys
+        );
+        const stringified = Object.fromEntries(
+          Object.entries(filtered).map(([key, value]) => [key, String(value)])
+        );
+        envSecrets = { ...envSecrets, ...stringified };
+      }
+    }
 
     if (options.output) {
       // Check if file already exists
