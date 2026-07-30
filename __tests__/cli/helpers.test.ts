@@ -14,7 +14,9 @@ import {
   renderTable,
   resolveAwsScope,
   resolveOutputFormat,
-  resolveSecretValue
+  resolveSecretValue,
+  shellJoinProgram,
+  shellQuoteProgramArgument
 } from '../../src/cli/helpers';
 
 describe('cli/helpers', () => {
@@ -62,6 +64,35 @@ describe('cli/helpers', () => {
     expect(() => parseRecoveryDays('6')).toThrow();
     expect(() => parseRecoveryDays('31')).toThrow();
     expect(() => parseRecoveryDays('abc')).toThrow();
+  });
+
+  it('quotes shell program arguments that need word-splitting protection', () => {
+    expect(shellQuoteProgramArgument('run all unit tests')).toBe(
+      "'run all unit tests'"
+    );
+    expect(shellQuoteProgramArgument("don't split")).toBe("'don'\\''t split'");
+    expect(shellQuoteProgramArgument('')).toBe("''");
+    expect(shellQuoteProgramArgument('$API_KEY')).toBe('$API_KEY');
+    expect(shellQuoteProgramArgument('/Users/mark/src/repo')).toBe(
+      '/Users/mark/src/repo'
+    );
+  });
+
+  it('joins shell program arguments without splitting option values containing spaces', () => {
+    expect(
+      shellJoinProgram([
+        'go',
+        'run',
+        './examples/orchestrator',
+        '--machine',
+        'macbook.tail6198c2.ts.net',
+        '--task',
+        'run all unit tests, and check coverage',
+        '/Users/mark/src/orchael/ai-agent-browser'
+      ])
+    ).toBe(
+      "go run ./examples/orchestrator --machine macbook.tail6198c2.ts.net --task 'run all unit tests, and check coverage' /Users/mark/src/orchael/ai-agent-browser"
+    );
   });
 
   it('reads stdin content and strips one trailing newline', async () => {

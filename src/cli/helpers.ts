@@ -85,6 +85,24 @@ export const parseRecoveryDays = (value: string) => {
   return parsed;
 };
 
+const SAFE_SHELL_TOKEN = /^[A-Za-z0-9_./:@%+=,$\-${}]+$/;
+
+export const shellQuoteProgramArgument = (argument: string) => {
+  if (argument.length === 0) {
+    return "''";
+  }
+
+  if (SAFE_SHELL_TOKEN.test(argument)) {
+    return argument;
+  }
+
+  return `'${argument.replace(/'/g, "'\\''")}'`;
+};
+
+export const shellJoinProgram = (program: string[]) => {
+  return program.map(shellQuoteProgramArgument).join(' ');
+};
+
 export type TtyReader = (prompt: string) => Promise<string>;
 
 const readLineFromTty: TtyReader = (prompt: string): Promise<string> => {
