@@ -35,16 +35,31 @@ const validateConfig = (raw: unknown, filePath: string): EnvSecretsConfig => {
 
   const config = raw as Record<string, unknown>;
 
-  if (config.provider !== undefined && typeof config.provider !== 'string') {
-    throw new Error(`Config "${filePath}": "provider" must be a string.`);
+  if (
+    config.provider !== undefined &&
+    (typeof config.provider !== 'string' || !config.provider.trim())
+  ) {
+    throw new Error(
+      `Config "${filePath}": "provider" must be a non-empty string.`
+    );
   }
 
-  if (config.profile !== undefined && typeof config.profile !== 'string') {
-    throw new Error(`Config "${filePath}": "profile" must be a string.`);
+  if (
+    config.profile !== undefined &&
+    (typeof config.profile !== 'string' || !config.profile.trim())
+  ) {
+    throw new Error(
+      `Config "${filePath}": "profile" must be a non-empty string.`
+    );
   }
 
-  if (config.region !== undefined && typeof config.region !== 'string') {
-    throw new Error(`Config "${filePath}": "region" must be a string.`);
+  if (
+    config.region !== undefined &&
+    (typeof config.region !== 'string' || !config.region.trim())
+  ) {
+    throw new Error(
+      `Config "${filePath}": "region" must be a non-empty string.`
+    );
   }
 
   if (!Array.isArray(config.secrets) || config.secrets.length === 0) {

@@ -171,7 +171,18 @@ secrets:
   - name: my/secret
 `;
     expect(() => parseConfig(bad, '/tmp/.env-secrets.yml')).toThrow(
-      '"provider" must be a string'
+      '"provider" must be a non-empty string'
+    );
+  });
+
+  it('throws when provider is empty', () => {
+    const bad = `
+provider: ""
+secrets:
+  - name: my/secret
+`;
+    expect(() => parseConfig(bad, '/tmp/.env-secrets.yml')).toThrow(
+      '"provider" must be a non-empty string'
     );
   });
 
@@ -182,7 +193,18 @@ secrets:
   - name: my/secret
 `;
     expect(() => parseConfig(bad, '/tmp/.env-secrets.yml')).toThrow(
-      '"profile" must be a string'
+      '"profile" must be a non-empty string'
+    );
+  });
+
+  it('throws when profile is empty', () => {
+    const bad = `
+profile: ""
+secrets:
+  - name: my/secret
+`;
+    expect(() => parseConfig(bad, '/tmp/.env-secrets.yml')).toThrow(
+      '"profile" must be a non-empty string'
     );
   });
 
@@ -193,7 +215,18 @@ secrets:
   - name: my/secret
 `;
     expect(() => parseConfig(bad, '/tmp/.env-secrets.yml')).toThrow(
-      '"region" must be a string'
+      '"region" must be a non-empty string'
+    );
+  });
+
+  it('throws when region is empty', () => {
+    const bad = `
+region: ""
+secrets:
+  - name: my/secret
+`;
+    expect(() => parseConfig(bad, '/tmp/.env-secrets.yml')).toThrow(
+      '"region" must be a non-empty string'
     );
   });
 
