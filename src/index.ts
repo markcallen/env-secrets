@@ -30,6 +30,7 @@ import {
   shellJoinProgram
 } from './cli/helpers';
 import { objectToExport } from './vaults/utils';
+import { loadConfig, filterSecretKeys, writeConfigFile } from './config';
 
 const debug = Debug('env-secrets');
 
@@ -39,6 +40,23 @@ const exitWithError = (error: unknown) => {
   // eslint-disable-next-line no-console
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
+};
+
+const parseAwsRegionFromArn = (arn?: string): string | undefined => {
+  const parts = arn?.split(':');
+  return parts?.[3] || undefined;
+};
+
+const resolveConfigFileRegion = (
+  region?: string,
+  arn?: string
+): string | undefined => {
+  return (
+    parseAwsRegionFromArn(arn) ||
+    region ||
+    process.env.AWS_REGION ||
+    process.env.AWS_DEFAULT_REGION
+  );
 };
 
 const parseSecretJsonObject = (
@@ -126,21 +144,107 @@ const awsCommand = program
     'output secrets to file instead of environment variables'
   )
   .option(
+    '--create-config [file]',
+    'create an env-secrets config file from --secret without fetching secret values'
+  )
+  .option(
     '--no-shell',
     'run program directly without a shell (disables shell expansion)'
   )
   .action(async (program, options) => {
-    if (!options.secret) {
-      exitWithError(
-        new Error('Missing required option --secret for this command.')
-      );
+    let config;
+    try {
+      config = loadConfig();
+    } catch (err) {
+      exitWithError(err);
+      return;
     }
 
-    const secrets = await secretsmanager(options);
-    debug(secrets);
-    const envSecrets = Object.fromEntries(
-      Object.entries(secrets).map(([key, value]) => [key, String(value)])
-    );
+    if (config?.provider && config.provider !== 'aws') {
+      exitWithError(
+        new Error(
+          `Config "provider" is "${config.provider}" but this is the aws command. Set provider to "aws" or remove the field.`
+        )
+      );
+      return;
+    }
+
+    if (!options.secret && !config?.secrets?.length) {
+      exitWithError(
+        new Error(
+          'Missing required option --secret for this command. Alternatively, create a .env-secrets.yml, .env-secrets.yaml, or .env-secrets.json config file in the current directory or your home directory.'
+        )
+      );
+      return;
+    }
+
+    const effectiveProfile = options.profile || config?.profile;
+    const effectiveRegion = options.region || config?.region;
+
+    if (options.createConfig) {
+      if (!options.secret) {
+        exitWithError(new Error('--create-config requires --secret.'));
+        return;
+      }
+
+      const configPath =
+        typeof options.createConfig === 'string'
+          ? options.createConfig
+          : '.env-secrets.yml';
+
+      try {
+        const metadata = await getSecretMetadata({
+          name: options.secret,
+          profile: effectiveProfile,
+          region: effectiveRegion
+        });
+
+        writeConfigFile(configPath, {
+          provider: 'aws',
+          profile: effectiveProfile,
+          region: resolveConfigFileRegion(effectiveRegion, metadata.arn),
+          secrets: [{ name: options.secret }]
+        });
+      } catch (err) {
+        exitWithError(err);
+        return;
+      }
+
+      // eslint-disable-next-line no-console
+      console.log(`Config written to ${configPath}`);
+      return;
+    }
+
+    let envSecrets: Record<string, string> = {};
+
+    if (options.secret) {
+      const secrets = await secretsmanager({
+        secret: options.secret,
+        profile: effectiveProfile,
+        region: effectiveRegion
+      });
+      debug(secrets);
+      envSecrets = Object.fromEntries(
+        Object.entries(secrets).map(([key, value]) => [key, String(value)])
+      );
+    } else {
+      for (const secretEntry of config?.secrets ?? []) {
+        const secrets = await secretsmanager({
+          secret: secretEntry.name,
+          profile: effectiveProfile,
+          region: effectiveRegion
+        });
+        debug(secrets);
+        const filtered = filterSecretKeys(
+          secrets as Record<string, unknown>,
+          secretEntry.keys
+        );
+        const stringified = Object.fromEntries(
+          Object.entries(filtered).map(([key, value]) => [key, String(value)])
+        );
+        envSecrets = { ...envSecrets, ...stringified };
+      }
+    }
 
     if (options.output) {
       // Check if file already exists

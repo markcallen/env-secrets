@@ -34,6 +34,7 @@
     "@everydaydevopsio/ballast": "^3.2.1",
     "@types/debug": "^4.1.13",
     "@types/jest": "^29.5.14",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^18.19.130",
     "@typescript-eslint/eslint-plugin": "^5.62.0",
     "@typescript-eslint/parser": "^5.62.0",
@@ -59,7 +60,8 @@
     "@aws-sdk/credential-providers": "^3.1096.0",
     "@modelcontextprotocol/sdk": "^1.30.0",
     "commander": "^9.5.0",
-    "debug": "^4.4.3"
+    "debug": "^4.4.3",
+    "js-yaml": "^5.2.2"
   },
   "lint-staged": {
     "**/*.js": [

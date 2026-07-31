@@ -80,7 +80,7 @@ For detailed AWS setup instructions, see [AWS Configuration Guide](docs/AWS.md).
 Retrieve secrets from AWS Secrets Manager and inject them as environment variables:
 
 ```bash
-env-secrets aws -s <secret-name> -r <region> -p <profile> [-- <program-to-run>] [-o <output-file>]
+env-secrets aws -s <secret-name> -r <region> -p <profile> [-- <program-to-run>] [-o <output-file>] [--create-config [file]]
 ```
 
 #### Quick Example
@@ -97,10 +97,11 @@ env-secrets aws -s my-app-secrets -r us-east-1 -- node app.js
 
 #### Parameters
 
-- `-s, --secret <secret-name>` (required): The name of the secret in AWS Secrets Manager
+- `-s, --secret <secret-name>` (optional with config): The name of the secret in AWS Secrets Manager. Required when no config file supplies `secrets`
 - `-r, --region <region>` (optional): AWS region where the secret is stored. If not provided, uses `AWS_DEFAULT_REGION` environment variable
 - `-p, --profile <profile>` (optional): Local AWS profile to use. If not provided, uses `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables
 - `-o, --output <file>` (optional): Output secrets to a file instead of injecting into environment variables. File will be created with 0400 permissions and will not overwrite existing files
+- `--create-config [file]` (optional): Create an env-secrets config file from `--secret` without writing secret keys or values. Defaults to `.env-secrets.yml`; use a `.json` filename for JSON output
 - `--no-shell` (optional): Run the program directly without a shell wrapper. Disables shell expansion — use when you do not need `$VAR` interpolation in arguments
 - `-- <program-to-run>`: The program to run with the injected environment variables (only used when `-o` is not specified)
 
@@ -114,6 +115,21 @@ These options are honored consistently on `aws secret` subcommands.
 
 `env-secrets aws -s` is for fetching/injecting secret values into a child process. Use `--no-shell` to run the program directly without a shell wrapper (disables shell expansion).  
 `env-secrets aws secret ...` is for lifecycle management commands (`create`, `update`, `upsert`/`import`, `append`, `remove`, `list`, `get`, `value`, `delete`).
+
+Create a reusable config file from an existing secret name:
+
+```bash
+env-secrets aws -s my-app-secrets -r us-east-1 --create-config
+```
+
+This writes `.env-secrets.yml` only after confirming the secret exists in the resolved region. The file includes the provider, verified region, explicit profile when provided, and the secret name only:
+
+```yaml
+provider: aws
+region: us-east-1
+secrets:
+  - name: my-app-secrets
+```
 
 #### Examples
 
