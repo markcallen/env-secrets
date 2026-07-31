@@ -97,7 +97,7 @@ env-secrets aws -s my-app-secrets -r us-east-1 -- node app.js
 
 #### Parameters
 
-- `-s, --secret <secret-name>` (required): The name of the secret in AWS Secrets Manager
+- `-s, --secret <secret-name>` (optional with config): The name of the secret in AWS Secrets Manager. Required when no config file supplies `secrets`
 - `-r, --region <region>` (optional): AWS region where the secret is stored. If not provided, uses `AWS_DEFAULT_REGION` environment variable
 - `-p, --profile <profile>` (optional): Local AWS profile to use. If not provided, uses `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` environment variables
 - `-o, --output <file>` (optional): Output secrets to a file instead of injecting into environment variables. File will be created with 0400 permissions and will not overwrite existing files

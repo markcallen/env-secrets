@@ -78,26 +78,31 @@ const validateConfig = (raw: unknown, filePath: string): EnvSecretsConfig => {
 
       const s = entry as Record<string, unknown>;
 
-      if (typeof s.name !== 'string' || !s.name) {
+      const name = typeof s.name === 'string' ? s.name.trim() : undefined;
+
+      if (!name) {
         throw new Error(
           `Config "${filePath}": secrets[${index}].name must be a non-empty string.`
         );
       }
 
+      let keys: string[] | undefined;
       if (s.keys !== undefined) {
         if (
           !Array.isArray(s.keys) ||
-          s.keys.some((k) => typeof k !== 'string' || !k)
+          s.keys.some((k) => typeof k !== 'string' || !k.trim())
         ) {
           throw new Error(
             `Config "${filePath}": secrets[${index}].keys must be an array of non-empty strings.`
           );
         }
+
+        keys = s.keys.map((k) => k.trim());
       }
 
       return {
-        name: s.name,
-        keys: s.keys as string[] | undefined
+        name,
+        keys
       };
     }
   );

@@ -146,6 +146,23 @@ secrets:
     });
   });
 
+  it('trims secret names and keys', () => {
+    const config = parseConfig(
+      `
+secrets:
+  - name: " my/secret "
+    keys:
+      - " DB_PASSWORD "
+      - " API_KEY "
+`,
+      '/tmp/.env-secrets.yml'
+    );
+
+    expect(config.secrets).toEqual([
+      { name: 'my/secret', keys: ['DB_PASSWORD', 'API_KEY'] }
+    ]);
+  });
+
   it('throws on invalid JSON', () => {
     expect(() => parseConfig('{ bad json', '/tmp/.env-secrets.json')).toThrow(
       'not valid JSON'
@@ -277,6 +294,16 @@ secrets:
     );
   });
 
+  it('throws when secret name is whitespace', () => {
+    const bad = `
+secrets:
+  - name: "   "
+`;
+    expect(() => parseConfig(bad, '/tmp/.env-secrets.yml')).toThrow(
+      'secrets[0].name must be a non-empty string'
+    );
+  });
+
   it('throws when keys contains non-string values', () => {
     const bad = `
 secrets:
@@ -289,9 +316,9 @@ secrets:
     );
   });
 
-  it('throws when keys contains empty strings', () => {
+  it('throws when keys contains empty or whitespace strings', () => {
     const bad = JSON.stringify({
-      secrets: [{ name: 'my/secret', keys: [''] }]
+      secrets: [{ name: 'my/secret', keys: ['', '   '] }]
     });
     expect(() => parseConfig(bad, '/tmp/.env-secrets.json')).toThrow(
       'secrets[0].keys must be an array of non-empty strings'
