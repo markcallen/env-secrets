@@ -166,6 +166,7 @@ const awsCommand = program
           `Config "provider" is "${config.provider}" but this is the aws command. Set provider to "aws" or remove the field.`
         )
       );
+      return;
     }
 
     if (!options.secret && !config?.secrets?.length) {
@@ -174,6 +175,7 @@ const awsCommand = program
           'Missing required option --secret for this command. Alternatively, create a .env-secrets.yml, .env-secrets.yaml, or .env-secrets.json config file in the current directory or your home directory.'
         )
       );
+      return;
     }
 
     const effectiveProfile = options.profile || config?.profile;
