@@ -26,7 +26,8 @@ import {
   parseRecoveryDays,
   resolveAwsScope,
   resolveOutputFormat,
-  resolveSecretValue
+  resolveSecretValue,
+  shellJoinProgram
 } from './cli/helpers';
 import { objectToExport } from './vaults/utils';
 import { loadConfig, filterSecretKeys } from './config';
@@ -218,7 +219,7 @@ const awsCommand = program
         }
 
         const child = options.shell
-          ? spawn(program.join(' '), [], {
+          ? spawn(shellJoinProgram(program), [], {
               stdio: 'inherit',
               shell: true,
               env
