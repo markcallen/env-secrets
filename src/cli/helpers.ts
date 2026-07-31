@@ -85,6 +85,45 @@ export const parseRecoveryDays = (value: string) => {
   return parsed;
 };
 
+const SAFE_POSIX_SHELL_TOKEN = /^[A-Za-z0-9_./:@%+=,$\-{}~]+$/;
+const SAFE_WINDOWS_SHELL_TOKEN = /^[A-Za-z0-9_./:@%+=,$\-{}~]+$/;
+
+export const shellQuoteProgramArgument = (
+  argument: string,
+  platform: NodeJS.Platform = process.platform
+) => {
+  if (argument.length === 0) {
+    return platform === 'win32' ? '""' : "''";
+  }
+
+  if (platform === 'win32') {
+    if (SAFE_WINDOWS_SHELL_TOKEN.test(argument)) {
+      return argument;
+    }
+
+    const escaped = argument
+      .replace(/(\\*)"/g, '$1$1\\"')
+      .replace(/(\\+)$/g, '$1$1');
+
+    return `"${escaped}"`;
+  }
+
+  if (SAFE_POSIX_SHELL_TOKEN.test(argument)) {
+    return argument;
+  }
+
+  return `'${argument.replace(/'/g, "'\\''")}'`;
+};
+
+export const shellJoinProgram = (
+  program: string[],
+  platform: NodeJS.Platform = process.platform
+) => {
+  return program
+    .map((argument) => shellQuoteProgramArgument(argument, platform))
+    .join(' ');
+};
+
 export type TtyReader = (prompt: string) => Promise<string>;
 
 const readLineFromTty: TtyReader = (prompt: string): Promise<string> => {
