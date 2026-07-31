@@ -5,6 +5,8 @@ import {
   findConfigFile,
   parseConfig,
   loadConfig,
+  serializeConfig,
+  writeConfigFile,
   filterSecretKeys
 } from '../../src/config/loader';
 
@@ -15,6 +17,9 @@ const mockExistsSync = fs.existsSync as jest.MockedFunction<
 >;
 const mockReadFileSync = fs.readFileSync as jest.MockedFunction<
   typeof fs.readFileSync
+>;
+const mockWriteFileSync = fs.writeFileSync as jest.MockedFunction<
+  typeof fs.writeFileSync
 >;
 
 const YAML_CONFIG = `
@@ -293,6 +298,76 @@ describe('loadConfig', () => {
     const config = loadConfig('/tmp/project');
     expect(config?.provider).toBe('aws');
     expect(config?.region).toBe('us-east-1');
+  });
+});
+
+describe('serializeConfig', () => {
+  it('serializes YAML config without keys when keys are omitted', () => {
+    const content = serializeConfig(
+      {
+        provider: 'aws',
+        profile: 'default',
+        region: 'us-east-1',
+        secrets: [{ name: 'my/secret' }]
+      },
+      '.env-secrets.yml'
+    );
+
+    expect(content).toContain('provider: aws');
+    expect(content).toContain('profile: default');
+    expect(content).toContain('region: us-east-1');
+    expect(content).toContain('name: my/secret');
+    expect(content).not.toContain('keys:');
+  });
+
+  it('serializes JSON config without keys when keys are omitted', () => {
+    const content = serializeConfig(
+      {
+        provider: 'aws',
+        region: 'us-east-1',
+        secrets: [{ name: 'my/secret' }]
+      },
+      '.env-secrets.json'
+    );
+
+    expect(JSON.parse(content)).toEqual({
+      provider: 'aws',
+      region: 'us-east-1',
+      secrets: [{ name: 'my/secret' }]
+    });
+  });
+});
+
+describe('writeConfigFile', () => {
+  beforeEach(() => {
+    jest.resetAllMocks();
+    mockExistsSync.mockReturnValue(false);
+  });
+
+  it('writes config file with owner-only permissions', () => {
+    writeConfigFile('.env-secrets.yml', {
+      provider: 'aws',
+      region: 'us-east-1',
+      secrets: [{ name: 'my/secret' }]
+    });
+
+    expect(mockWriteFileSync).toHaveBeenCalledWith(
+      '.env-secrets.yml',
+      expect.stringContaining('name: my/secret'),
+      { mode: 0o600 }
+    );
+  });
+
+  it('does not overwrite an existing config file', () => {
+    mockExistsSync.mockReturnValue(true);
+
+    expect(() =>
+      writeConfigFile('.env-secrets.yml', {
+        provider: 'aws',
+        secrets: [{ name: 'my/secret' }]
+      })
+    ).toThrow('already exists');
+    expect(mockWriteFileSync).not.toHaveBeenCalled();
   });
 });
 

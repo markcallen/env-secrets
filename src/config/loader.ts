@@ -1,7 +1,7 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { load as parseYaml } from 'js-yaml';
+import { dump as dumpYaml, load as parseYaml } from 'js-yaml';
 
 import type { EnvSecretsConfig, SecretConfig } from './types';
 
@@ -124,6 +124,37 @@ export const loadConfig = (cwd?: string): EnvSecretsConfig | undefined => {
 
   const content = readFileSync(configPath, 'utf8');
   return parseConfig(content, configPath);
+};
+
+export const serializeConfig = (
+  config: EnvSecretsConfig,
+  filePath: string
+): string => {
+  const data = {
+    ...(config.provider ? { provider: config.provider } : {}),
+    ...(config.profile ? { profile: config.profile } : {}),
+    ...(config.region ? { region: config.region } : {}),
+    secrets: config.secrets.map((secret) => ({
+      name: secret.name,
+      ...(secret.keys?.length ? { keys: secret.keys } : {})
+    }))
+  };
+
+  if (filePath.endsWith('.json')) {
+    return `${JSON.stringify(data, null, 2)}\n`;
+  }
+
+  return dumpYaml(data, { lineWidth: -1 });
+};
+
+export const writeConfigFile = (filePath: string, config: EnvSecretsConfig) => {
+  if (existsSync(filePath)) {
+    throw new Error(
+      `Config file "${filePath}" already exists and will not be overwritten.`
+    );
+  }
+
+  writeFileSync(filePath, serializeConfig(config, filePath), { mode: 0o600 });
 };
 
 export const filterSecretKeys = (

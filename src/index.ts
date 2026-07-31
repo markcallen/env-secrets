@@ -30,7 +30,7 @@ import {
   shellJoinProgram
 } from './cli/helpers';
 import { objectToExport } from './vaults/utils';
-import { loadConfig, filterSecretKeys } from './config';
+import { loadConfig, filterSecretKeys, writeConfigFile } from './config';
 
 const debug = Debug('env-secrets');
 
@@ -40,6 +40,34 @@ const exitWithError = (error: unknown) => {
   // eslint-disable-next-line no-console
   console.error(error instanceof Error ? error.message : String(error));
   process.exit(1);
+};
+
+const resolveConfigFileProfile = (profile?: string): string | undefined => {
+  if (profile) {
+    return profile;
+  }
+
+  const hasEnvironmentCredentials =
+    process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY;
+
+  return hasEnvironmentCredentials ? undefined : 'default';
+};
+
+const parseAwsRegionFromArn = (arn?: string): string | undefined => {
+  const parts = arn?.split(':');
+  return parts?.[3] || undefined;
+};
+
+const resolveConfigFileRegion = (
+  region?: string,
+  arn?: string
+): string | undefined => {
+  return (
+    parseAwsRegionFromArn(arn) ||
+    region ||
+    process.env.AWS_REGION ||
+    process.env.AWS_DEFAULT_REGION
+  );
 };
 
 const parseSecretJsonObject = (
@@ -127,6 +155,10 @@ const awsCommand = program
     'output secrets to file instead of environment variables'
   )
   .option(
+    '--create-config [file]',
+    'create an env-secrets config file from --secret without fetching secret values'
+  )
+  .option(
     '--no-shell',
     'run program directly without a shell (disables shell expansion)'
   )
@@ -157,6 +189,40 @@ const awsCommand = program
 
     const effectiveProfile = options.profile || config?.profile;
     const effectiveRegion = options.region || config?.region;
+
+    if (options.createConfig) {
+      if (!options.secret) {
+        exitWithError(new Error('--create-config requires --secret.'));
+        return;
+      }
+
+      const configPath =
+        typeof options.createConfig === 'string'
+          ? options.createConfig
+          : '.env-secrets.yml';
+
+      try {
+        const metadata = await getSecretMetadata({
+          name: options.secret,
+          profile: effectiveProfile,
+          region: effectiveRegion
+        });
+
+        writeConfigFile(configPath, {
+          provider: 'aws',
+          profile: resolveConfigFileProfile(effectiveProfile),
+          region: resolveConfigFileRegion(effectiveRegion, metadata.arn),
+          secrets: [{ name: options.secret }]
+        });
+      } catch (err) {
+        exitWithError(err);
+        return;
+      }
+
+      // eslint-disable-next-line no-console
+      console.log(`Config written to ${configPath}`);
+      return;
+    }
 
     let envSecrets: Record<string, string> = {};
 

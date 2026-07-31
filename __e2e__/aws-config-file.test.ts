@@ -196,4 +196,77 @@ describe('AWS Config File E2E', () => {
     const env = JSON.parse(result.stdout.trim()) as Record<string, string>;
     expect(env.JSON_KEY).toBe('json-value');
   });
+
+  test('creates config file from a secret name without keys', async () => {
+    const secret = await createTestSecret({
+      name: `config-create-${Date.now()}`,
+      value: '{"API_KEY": "secret-value", "DB_PASS": "secret-pass"}'
+    });
+
+    const result = await cliWithEnv(
+      ['aws', '-s', secret.prefixedName, '--create-config'],
+      getLocalStackEnv(),
+      tempDir
+    );
+
+    expect(result.code).toBe(0);
+    expect(result.stdout).toContain('Config written to .env-secrets.yml');
+
+    const configPath = path.join(tempDir, '.env-secrets.yml');
+    const content = fs.readFileSync(configPath, 'utf8');
+    expect(content).toContain('provider: aws');
+    expect(content).toContain('region: us-east-1');
+    expect(content).toContain(`name: ${secret.prefixedName}`);
+    expect(content).not.toContain('keys:');
+    expect(content).not.toContain('API_KEY');
+    expect(content).not.toContain('DB_PASS');
+  });
+
+  test('creates config file at a custom path with provided region', async () => {
+    const secret = await createTestSecret(
+      {
+        name: `config-create-region-${Date.now()}`,
+        value: '{"REGION_KEY": "region-value"}'
+      },
+      'us-west-2'
+    );
+
+    const result = await cliWithEnv(
+      [
+        'aws',
+        '-s',
+        secret.prefixedName,
+        '-r',
+        'us-west-2',
+        '--create-config',
+        'custom.env-secrets.json'
+      ],
+      getLocalStackEnv(),
+      tempDir
+    );
+
+    expect(result.code).toBe(0);
+
+    const content = fs.readFileSync(
+      path.join(tempDir, 'custom.env-secrets.json'),
+      'utf8'
+    );
+    expect(JSON.parse(content)).toEqual({
+      provider: 'aws',
+      region: 'us-west-2',
+      secrets: [{ name: secret.prefixedName }]
+    });
+  });
+
+  test('does not create config file when secret is not found', async () => {
+    const result = await cliWithEnv(
+      ['aws', '-s', 'missing-config-secret', '--create-config'],
+      getLocalStackEnv(),
+      tempDir
+    );
+
+    expect(result.code).toBe(1);
+    expect(result.stderr).toContain('was not found');
+    expect(fs.existsSync(path.join(tempDir, '.env-secrets.yml'))).toBe(false);
+  });
 });
