@@ -122,7 +122,7 @@ Create a reusable config file from an existing secret name:
 env-secrets aws -s my-app-secrets -r us-east-1 --create-config
 ```
 
-This writes `.env-secrets.yml` only after confirming the secret exists. The file includes the provider, effective region/profile when available, and the secret name only:
+This writes `.env-secrets.yml` only after confirming the secret exists in the resolved region. The file includes the provider, verified region, explicit profile when provided, and the secret name only:
 
 ```yaml
 provider: aws

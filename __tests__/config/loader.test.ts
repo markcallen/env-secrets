@@ -341,10 +341,9 @@ describe('serializeConfig', () => {
 describe('writeConfigFile', () => {
   beforeEach(() => {
     jest.resetAllMocks();
-    mockExistsSync.mockReturnValue(false);
   });
 
-  it('writes config file with owner-only permissions', () => {
+  it('writes config file with owner-only permissions using exclusive create', () => {
     writeConfigFile('.env-secrets.yml', {
       provider: 'aws',
       region: 'us-east-1',
@@ -354,12 +353,16 @@ describe('writeConfigFile', () => {
     expect(mockWriteFileSync).toHaveBeenCalledWith(
       '.env-secrets.yml',
       expect.stringContaining('name: my/secret'),
-      { mode: 0o600 }
+      { flag: 'wx', mode: 0o600 }
     );
   });
 
   it('does not overwrite an existing config file', () => {
-    mockExistsSync.mockReturnValue(true);
+    mockWriteFileSync.mockImplementation(() => {
+      const error = new Error('exists') as NodeJS.ErrnoException;
+      error.code = 'EEXIST';
+      throw error;
+    });
 
     expect(() =>
       writeConfigFile('.env-secrets.yml', {
@@ -367,7 +370,11 @@ describe('writeConfigFile', () => {
         secrets: [{ name: 'my/secret' }]
       })
     ).toThrow('already exists');
-    expect(mockWriteFileSync).not.toHaveBeenCalled();
+    expect(mockWriteFileSync).toHaveBeenCalledWith(
+      '.env-secrets.yml',
+      expect.stringContaining('name: my/secret'),
+      { flag: 'wx', mode: 0o600 }
+    );
   });
 });
 

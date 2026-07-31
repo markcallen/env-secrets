@@ -42,17 +42,6 @@ const exitWithError = (error: unknown) => {
   process.exit(1);
 };
 
-const resolveConfigFileProfile = (profile?: string): string | undefined => {
-  if (profile) {
-    return profile;
-  }
-
-  const hasEnvironmentCredentials =
-    process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY;
-
-  return hasEnvironmentCredentials ? undefined : 'default';
-};
-
 const parseAwsRegionFromArn = (arn?: string): string | undefined => {
   const parts = arn?.split(':');
   return parts?.[3] || undefined;
@@ -210,7 +199,7 @@ const awsCommand = program
 
         writeConfigFile(configPath, {
           provider: 'aws',
-          profile: resolveConfigFileProfile(effectiveProfile),
+          profile: effectiveProfile,
           region: resolveConfigFileRegion(effectiveRegion, metadata.arn),
           secrets: [{ name: options.secret }]
         });

@@ -148,13 +148,20 @@ export const serializeConfig = (
 };
 
 export const writeConfigFile = (filePath: string, config: EnvSecretsConfig) => {
-  if (existsSync(filePath)) {
-    throw new Error(
-      `Config file "${filePath}" already exists and will not be overwritten.`
-    );
-  }
+  try {
+    writeFileSync(filePath, serializeConfig(config, filePath), {
+      flag: 'wx',
+      mode: 0o600
+    });
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === 'EEXIST') {
+      throw new Error(
+        `Config file "${filePath}" already exists and will not be overwritten.`
+      );
+    }
 
-  writeFileSync(filePath, serializeConfig(config, filePath), { mode: 0o600 });
+    throw err;
+  }
 };
 
 export const filterSecretKeys = (

@@ -213,7 +213,7 @@ env-secrets aws -s my-app-secrets -r us-east-1 --create-config
 env-secrets aws -s my-app-secrets -r us-east-1 --create-config .env-secrets.json
 ```
 
-`--create-config` verifies that the secret exists before writing the file. It stores the provider, effective region/profile when available, and secret names only; it does not write the secret keys or values.
+`--create-config` verifies that the secret exists in the resolved region before writing the file. It stores the provider, verified region, explicit profile when provided, and secret names only; it does not write the secret keys or values.
 
 ### Secret Management
 
