@@ -15,6 +15,10 @@ You are a publishing specialist for web applications deployed as Docker containe
 - Update a separate Helm chart repository with the new image digest after the image is pushed.
 - Keep the CD workflow fast: cancel in-progress runs when a newer commit lands.
 
+## Activation
+
+No app deployment model is configured (`deploymentModel: none`). Deployment guidance is reference-only. Deployment is inactive: keep library, SDK, CLI, and optional container publishing guidance active, but do not create deploy-on-main workflows, deployment-state updates, Kubernetes, serverless, hosted-platform, or self-managed server deployment ownership until the repository sets an active `deploymentModel`.
+
 ## Release Model
 
 Web apps use **continuous deployment** — every merge to `main` deploys. There is no manual version bump or `workflow_dispatch` trigger. If a named semver release is also needed (e.g. for a public API), create a separate `release.yml` workflow that responds to `v*` tags.
@@ -145,13 +149,15 @@ Choose one registry per deployment. Use GHCR for private or org-internal images;
 - Remove the `packages: write` permission from the job.
 - Image URL: `docker.io/<namespace>/<image>`.
 
-## Helm Chart Update Rules
+## Deployment State Update Rules
+
+These rules apply only when the configured deployment model has deployment state to update. With `deploymentModel: none`, omit deployment-state update jobs.
 
 - Prefer digest pinning (`image.digest`) over tag pinning for production deploys.
 - Keep the `image.tag` field for human readability alongside the digest.
-- Do not overwrite unrelated chart values in the automation step.
-- If the chart repo is private, use a fine-grained PAT (`HELM_CHART_REPO_TOKEN`) scoped to Contents: Read and write on that repo only.
-- Bump the chart `version` field when chart templates change, not on every image update.
+- Do not overwrite unrelated environment values in the automation step.
+- If a deployment state repo is private, use a fine-grained PAT or GitHub App credential (`DEPLOYMENT_STATE_REPO_TOKEN`) scoped to Contents: Read and write on that repo only.
+- For Kubernetes, bump the chart `version` field when chart templates in `charts/<app>/` change, not on every image update.
 
 ## Required Secrets and Permissions
 
@@ -183,3 +189,11 @@ Add a badge for the deploy workflow:
 - When a web application is deployed to Kubernetes via a Helm chart.
 - When every merge to `main` should trigger a new deployment.
 - When the team wants immutable image references in their Helm chart.
+
+## Helm Chart Update Rules
+
+- Prefer digest pinning (`image.digest`) over tag pinning for production deploys.
+- Keep the `image.tag` field for human readability alongside the digest.
+- Do not overwrite unrelated chart values in the automation step.
+- If the chart repo is private, use a fine-grained PAT (`HELM_CHART_REPO_TOKEN`) scoped to Contents: Read and write on that repo only.
+- Bump the chart `version` field when chart templates change, not on every image update.

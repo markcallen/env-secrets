@@ -64,6 +64,114 @@ For TypeScript or Node CLI apps distributed through npmjs:
 - Prefer npm trusted publishing with `id-token: write`.
 - Verify the packaged CLI starts successfully from the built artifact before publishing.
 
+## App Deployment Model
+
+No app deployment model is configured (`deploymentModel: none`). Deployment guidance is reference-only. Deployment is inactive: keep library, SDK, CLI, and optional container publishing guidance active, but do not create deploy-on-main workflows, deployment-state updates, Kubernetes, serverless, hosted-platform, or self-managed server deployment ownership until the repository sets an active `deploymentModel`.
+
+### Container Registry Targets
+
+Support either of these release targets:
+
+- **GHCR** (`ghcr.io/<owner>/<image>`)
+- **Docker Hub** (`docker.io/<namespace>/<image>` or `<namespace>/<image>`)
+
+When building the workflow:
+
+- trigger on version tags or `workflow_dispatch`
+- check out the tagged ref
+- build the production image from the app Dockerfile
+- tag the image with:
+  - the app version from the created `v<version>` tag
+  - the git SHA
+  - optionally `latest` only when the team explicitly wants mutable tags
+- push the image only after tests and build verification pass
+- prefer immutable deploy references using the published digest
+
+### GitHub Actions Guidance for Web App Container Publishing
+
+- Use `docker/setup-buildx-action` for reproducible multi-platform builds when needed.
+- Use `docker/login-action` with the correct registry:
+  - GHCR: authenticate with `GITHUB_TOKEN` or a scoped token and grant `packages: write`
+  - Docker Hub: authenticate with repository secrets such as `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN`
+- Use `docker/build-push-action` to:
+  - build the image
+  - push tags
+  - emit the image digest
+- Keep the publish job permissions minimal:
+  - GHCR: `contents: read`, `packages: write`
+  - Docker Hub: `contents: read` plus Docker Hub credentials from secrets
+
+### Image Reference Rules
+
+- Prefer digest pinning for production deployments when the platform supports it.
+- Keep the application version and deployment-manifest version distinct:
+  - app version tracks the shipped container
+  - chart, manifest, or platform config version tracks deployment-shape changes
+- Do not overwrite unrelated environment values during automation.
+- If multiple environments exist, make the target environment explicit in workflow inputs or promotion controls.
+
+### What to Generate
+
+For a web app release workflow, generate:
+
+- a Docker image publish job for GHCR or Docker Hub
+- outputs exposing the published image tag and digest
+- a deployment-model-specific follow-up job or reusable workflow when an environment should move to the new image
+- clear secrets and permissions documentation in the workflow comments or README
+
+### What Not to Do
+
+- Do not deploy mutable `latest` tags by default.
+- Do not hardcode long-lived registry passwords in workflow files.
+- Do not hide deployment state changes inside a shell script with no visible diff or audit trail.
+- Do not assume Kubernetes-specific Helm or ArgoCD ownership when `deploymentModel` is not `kubernetes`.
+
+## Python Apps: PyPI
+
+For Python apps or CLIs distributed through PyPI:
+
+- Package the app with console entry points in `pyproject.toml`.
+- Build wheel and sdist.
+- Prefer PyPI trusted publishing via GitHub Actions.
+- Release job guidance:
+  - `actions/setup-python`
+  - `astral-sh/setup-uv` when relevant
+  - build artifacts
+  - run tests
+  - optionally smoke-test the built wheel
+  - publish to PyPI with `uv publish` or `pypa/gh-action-pypi-publish`
+- Grant `id-token: write` only to the publish job.
+
+## Go Apps: GitHub Releases
+
+For Go apps and CLIs:
+
+- Publish binaries and archives to GitHub Releases.
+- Prefer GoReleaser when the project ships binaries for multiple OS or architecture targets.
+- Release job guidance:
+  - `actions/setup-go`
+  - full-history checkout
+  - verify the binary builds before release
+  - run GoReleaser or equivalent packaging
+  - upload archives, checksums, and release notes to GitHub
+- If the app also feeds a Homebrew tap or other package index, generate that metadata from the same tagged release.
+
+## App-Specific Release Requirements
+
+- Smoke-test the installed app or CLI from the built artifact before publish.
+- Keep installation instructions in `README.md` aligned with the actual release channel.
+- Publish checksums for downloadable binaries when the app ships archives.
+- Ensure version output from the binary or CLI matches the release tag.
+- For web apps, keep the published container image and Helm chart update linked by version or digest in release notes or workflow outputs.
+- The workflow-dispatch `release_type` input should decide whether the next app tag is patch, minor, or major.
+
+## When to Apply
+
+- When a repository publishes a CLI, desktop helper, or installable service package.
+- When the release artifact is intended for direct installation by end users.
+- When a project needs app-focused packaging guidance instead of library-only rules.
+- When a web app is released as a container image and deployed through a separate Helm chart repository.
+
 ## Web Apps: Docker Image + Separate Helm Chart Repo
 
 For web apps deployed to Kubernetes, prefer a two-repository release model:
@@ -156,49 +264,3 @@ For a web app release workflow, generate:
 - Do not hardcode long-lived registry passwords in workflow files.
 - Do not keep the chart repo update step hidden inside a shell script with no visible diff.
 - Do not update a Helm chart in-place in the app repo when the team has chosen a separate chart repository model.
-
-## Python Apps: PyPI
-
-For Python apps or CLIs distributed through PyPI:
-
-- Package the app with console entry points in `pyproject.toml`.
-- Build wheel and sdist.
-- Prefer PyPI trusted publishing via GitHub Actions.
-- Release job guidance:
-  - `actions/setup-python`
-  - `astral-sh/setup-uv` when relevant
-  - build artifacts
-  - run tests
-  - optionally smoke-test the built wheel
-  - publish to PyPI with `uv publish` or `pypa/gh-action-pypi-publish`
-- Grant `id-token: write` only to the publish job.
-
-## Go Apps: GitHub Releases
-
-For Go apps and CLIs:
-
-- Publish binaries and archives to GitHub Releases.
-- Prefer GoReleaser when the project ships binaries for multiple OS or architecture targets.
-- Release job guidance:
-  - `actions/setup-go`
-  - full-history checkout
-  - verify the binary builds before release
-  - run GoReleaser or equivalent packaging
-  - upload archives, checksums, and release notes to GitHub
-- If the app also feeds a Homebrew tap or other package index, generate that metadata from the same tagged release.
-
-## App-Specific Release Requirements
-
-- Smoke-test the installed app or CLI from the built artifact before publish.
-- Keep installation instructions in `README.md` aligned with the actual release channel.
-- Publish checksums for downloadable binaries when the app ships archives.
-- Ensure version output from the binary or CLI matches the release tag.
-- For web apps, keep the published container image and Helm chart update linked by version or digest in release notes or workflow outputs.
-- The workflow-dispatch `release_type` input should decide whether the next app tag is patch, minor, or major.
-
-## When to Apply
-
-- When a repository publishes a CLI, desktop helper, or installable service package.
-- When the release artifact is intended for direct installation by end users.
-- When a project needs app-focused packaging guidance instead of library-only rules.
-- When a web app is released as a container image and deployed through a separate Helm chart repository.

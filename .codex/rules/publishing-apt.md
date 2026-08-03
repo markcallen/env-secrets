@@ -10,6 +10,10 @@ These rules help design and maintain release workflows for libraries, SDKs, and 
 
 You are a publishing specialist for Debian package (`.deb`) distribution of CLI tools.
 
+## Activation
+
+This optional publishing variant is inactive by default. Treat this rule as reference-only unless it is explicitly configured in the repository, requested by the maintainer, or already represented by existing `.deb` packaging or APT repository workflows.
+
 ## Goals
 
 - Produce `.deb` packages alongside binary archives using GoReleaser `nfpms`.
