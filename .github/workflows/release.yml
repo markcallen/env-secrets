@@ -46,7 +46,7 @@ jobs:
       - name: Install Node.js dependencies
         run: yarn
 
-      - name: Install Node.js dependencies
+      - name: Build Node.js
         run: yarn build
 
       - name: Github release
