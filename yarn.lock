@@ -15,10 +15,10 @@
     "@jridgewell/gen-mapping" "^0.1.0"
     "@jridgewell/trace-mapping" "^0.3.9"
 
-"@aws-sdk/client-secrets-manager@^3.1096.0":
-  version "3.1100.0"
-  resolved "https://registry.npmjs.org/@aws-sdk/client-secrets-manager/-/client-secrets-manager-3.1100.0.tgz"
-  integrity sha512-wMpK4jdtfz/x0ZY3w6v/BrlL4K4bTRoZyDvSCNlCeQ57avT/rdVExO9nY6kT7IHg3/3bROifc7i4dMNnTT1COQ==
+"@aws-sdk/client-secrets-manager@^3.1101.0":
+  version "3.1101.0"
+  resolved "https://registry.yarnpkg.com/@aws-sdk/client-secrets-manager/-/client-secrets-manager-3.1101.0.tgz#54443a9ab242eb7b62017c003e1a1ebf4779ee73"
+  integrity sha512-+FZgLzBuzbGOJN3Hoo0QadoFs8U9MK7PwqHscRCNdMaU33yqqBTjCtHsiZCXyCJeuW7gar8+fojLGQQEmEiOAA==
   dependencies:
     "@aws-sdk/core" "^3.977.4"
     "@aws-sdk/credential-provider-node" "^3.972.76"
@@ -29,10 +29,10 @@
     "@smithy/types" "^4.16.1"
     tslib "^2.6.2"
 
-"@aws-sdk/client-sts@^3.1096.0":
-  version "3.1100.0"
-  resolved "https://registry.npmjs.org/@aws-sdk/client-sts/-/client-sts-3.1100.0.tgz"
-  integrity sha512-83SKuGjNbVRPZ3/I180wnOc0i8fYqfLPUUJk5E5HmJvofF9sPgTZBUyB72hhzAaCXYssfT36xnVdk9V5gekA8w==
+"@aws-sdk/client-sts@^3.1101.0":
+  version "3.1101.0"
+  resolved "https://registry.yarnpkg.com/@aws-sdk/client-sts/-/client-sts-3.1101.0.tgz#dcdf50f5d07cfd4c3755f164a954abc8646e0bed"
+  integrity sha512-g/xmDwNRsObFM8WnYCvMOYipHRL2B+C18eRw5KzB3wiqF/BtDuscq8lIUVK9sU6bpCIqrDHVuHoUyKNaS9OWkg==
   dependencies:
     "@aws-sdk/core" "^3.977.4"
     "@aws-sdk/credential-provider-node" "^3.972.76"
@@ -177,10 +177,10 @@
     "@smithy/types" "^4.16.1"
     tslib "^2.6.2"
 
-"@aws-sdk/credential-providers@^3.1096.0":
-  version "3.1100.0"
-  resolved "https://registry.npmjs.org/@aws-sdk/credential-providers/-/credential-providers-3.1100.0.tgz"
-  integrity sha512-DzSoStbMHuqGYFED1o58nQOeg+3TZrldvOoodTHkJ2nEb6BXiQ2PgXqQbkJuCJe+poGJK0lGDVSFWdv9KM+c2Q==
+"@aws-sdk/credential-providers@^3.1101.0":
+  version "3.1101.0"
+  resolved "https://registry.yarnpkg.com/@aws-sdk/credential-providers/-/credential-providers-3.1101.0.tgz#94a3b83c8aad42b52268a0e7414b279a26989aaa"
+  integrity sha512-w19SnW8MMP/tFghHRA6zmKQJar/BVdrFq4leh4doCCMWWIwEsP8F3mP1VnpPXCwmrtUjVoQVxm/4wV/SwhkTrw==
   dependencies:
     "@aws-sdk/core" "^3.977.4"
     "@aws-sdk/credential-provider-cognito-identity" "^3.972.64"
