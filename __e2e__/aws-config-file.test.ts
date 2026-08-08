@@ -330,5 +330,29 @@ describe('AWS Config File E2E', () => {
       const env = JSON.parse(result.stdout.trim()) as Record<string, string>;
       expect(env.EXPLICIT_KEY).toBe('explicit-value');
     });
+
+    test('auto-dispatches when target program flags follow -- separator', async () => {
+      const secret = await createTestSecret({
+        name: `auto-dispatch-dashes-${Date.now()}`,
+        value: '{"DASHES_KEY": "dashes-value"}'
+      });
+
+      fs.writeFileSync(
+        path.join(tempDir, '.env-secrets.yml'),
+        `provider: aws\nsecrets:\n  - name: ${secret.prefixedName}\n`
+      );
+
+      // --help after -- belongs to the target program, not env-secrets;
+      // auto-dispatch should still fire.
+      const result = await cliWithEnv(
+        ['--', 'echo', '--help'],
+        getLocalStackEnv(),
+        tempDir
+      );
+
+      expect(result.code).toBe(0);
+      const env = JSON.parse(result.stdout.trim()) as Record<string, string>;
+      expect(env.DASHES_KEY).toBe('dashes-value');
+    });
   });
 });
