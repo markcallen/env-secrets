@@ -150,10 +150,10 @@ Use the `codex mcp add` CLI command to register the server:
 
 ```bash
 # Using npx (no global install required)
-codex mcp add env-secrets -e AWS_REGION=us-east-1 -- npx -y env-secrets mcp
+codex mcp add env-secrets -- env AWS_REGION=us-east-1 npx -y env-secrets mcp
 
 # Using a global install (npm install -g env-secrets)
-codex mcp add env-secrets -e AWS_REGION=us-east-1 -- env-secrets-mcp
+codex mcp add env-secrets -- env AWS_REGION=us-east-1 env-secrets-mcp
 ```
 
 Or add manually to `~/.codex/config.toml` or project `codex.toml`:
