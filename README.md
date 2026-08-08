@@ -318,7 +318,7 @@ claude mcp add env-secrets -e AWS_REGION=us-east-1 -- npx -y env-secrets mcp
 **OpenAI Codex** — use the CLI to register the server:
 
 ```bash
-codex mcp add env-secrets -- npx -y env-secrets mcp
+codex mcp add env-secrets -e AWS_REGION=us-east-1 -- npx -y env-secrets mcp
 ```
 
 Or add manually to your agent's MCP config (example for Claude Code `~/.claude/settings.json`):

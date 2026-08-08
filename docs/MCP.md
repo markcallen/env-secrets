@@ -121,7 +121,7 @@ Use the `claude mcp add` CLI command to register the server:
 claude mcp add env-secrets -e AWS_REGION=us-east-1 -- npx -y env-secrets mcp
 
 # Using a global install (npm install -g env-secrets)
-claude mcp add env-secrets -- env-secrets-mcp
+claude mcp add env-secrets -e AWS_REGION=us-east-1 -- env-secrets-mcp
 ```
 
 Or add manually to `~/.claude/settings.json` (global) or `.claude/settings.json` (project):
@@ -150,10 +150,10 @@ Use the `codex mcp add` CLI command to register the server:
 
 ```bash
 # Using npx (no global install required)
-codex mcp add env-secrets -- npx -y env-secrets mcp
+codex mcp add env-secrets -e AWS_REGION=us-east-1 -- npx -y env-secrets mcp
 
 # Using a global install (npm install -g env-secrets)
-codex mcp add env-secrets -- env-secrets-mcp
+codex mcp add env-secrets -e AWS_REGION=us-east-1 -- env-secrets-mcp
 ```
 
 Or add manually to `~/.codex/config.toml` or project `codex.toml`:
