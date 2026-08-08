@@ -935,4 +935,28 @@ program
     child.on('exit', (code) => process.exit(code ?? 0));
   });
 
+// Auto-dispatch to the provider subcommand when no subcommand is given.
+// Allows `env-secrets echo foo` to work like `env-secrets aws echo foo`
+// when the config file has `provider: aws`.
+{
+  const knownSubcommands = ['aws', 'mcp'];
+  const topLevelFlags = new Set(['-h', '--help', '-V', '--version']);
+  const rawArgs = process.argv.slice(2);
+  const hasTopLevelFlag = rawArgs.some((a) => topLevelFlags.has(a));
+  const firstPositional = rawArgs.find((a) => !a.startsWith('-'));
+  const hasSubcommand =
+    firstPositional !== undefined && knownSubcommands.includes(firstPositional);
+
+  if (!hasTopLevelFlag && !hasSubcommand) {
+    try {
+      const config = loadConfig();
+      if (config?.provider && knownSubcommands.includes(config.provider)) {
+        process.argv.splice(2, 0, config.provider);
+      }
+    } catch {
+      // Config errors will be surfaced by the command action
+    }
+  }
+}
+
 program.parse();
