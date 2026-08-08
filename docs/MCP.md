@@ -114,7 +114,17 @@ env-secrets aws secret get -n 'my-app/prod'
 
 ### Claude Code
 
-Add to `~/.claude/settings.json` (global) or `.claude/settings.json` (project):
+Use the `claude mcp add` CLI command to register the server:
+
+```bash
+# Using npx (no global install required)
+claude mcp add env-secrets -e AWS_REGION=us-east-1 -- npx -y env-secrets mcp
+
+# Using a global install (npm install -g env-secrets)
+claude mcp add env-secrets -- env-secrets-mcp
+```
+
+Or add manually to `~/.claude/settings.json` (global) or `.claude/settings.json` (project):
 
 ```json
 {
@@ -130,25 +140,23 @@ Add to `~/.claude/settings.json` (global) or `.claude/settings.json` (project):
 }
 ```
 
-With a global install (`npm install -g env-secrets`):
-
-```json
-{
-  "mcpServers": {
-    "env-secrets": {
-      "command": "env-secrets-mcp"
-    }
-  }
-}
-```
-
 Restart Claude Code after changing the config. The tools `list_secrets`, `describe_secret`, and `get_command` will be available in the session.
 
 ---
 
 ### OpenAI Codex
 
-Add to `~/.codex/config.toml` or project `codex.toml`:
+Use the `codex mcp add` CLI command to register the server:
+
+```bash
+# Using npx (no global install required)
+codex mcp add env-secrets -- npx -y env-secrets mcp
+
+# Using a global install (npm install -g env-secrets)
+codex mcp add env-secrets -- env-secrets-mcp
+```
+
+Or add manually to `~/.codex/config.toml` or project `codex.toml`:
 
 ```toml
 [[mcp_servers]]
@@ -165,26 +173,6 @@ With a global install:
 [[mcp_servers]]
 name = "env-secrets"
 command = ["env-secrets-mcp"]
-```
-
----
-
-### Gemini CLI
-
-Add to `~/.gemini/settings.json` or project `.gemini/settings.json`:
-
-```json
-{
-  "mcpServers": {
-    "env-secrets": {
-      "command": "npx",
-      "args": ["-y", "env-secrets", "mcp"],
-      "env": {
-        "AWS_REGION": "us-east-1"
-      }
-    }
-  }
-}
 ```
 
 ---
