@@ -305,11 +305,23 @@ env-secrets aws secret value -n app/dev -r us-east-1 --output json
 
 ## MCP Server (AI Agent Integration)
 
-The `env-secrets` MCP server lets AI agents (Claude Code, OpenAI Codex, Gemini CLI, and others) work with AWS Secrets Manager secrets — **without secret values ever entering the agent's context**.
+The `env-secrets` MCP server lets AI agents (Claude Code, OpenAI Codex, and others) work with AWS Secrets Manager secrets — **without secret values ever entering the agent's context**.
 
 ### Quick Setup
 
-Add to your agent's MCP config (example for Claude Code `~/.claude/settings.json`):
+**Claude Code** — use the CLI to register the server:
+
+```bash
+claude mcp add env-secrets -e AWS_REGION=us-east-1 -- npx -y env-secrets mcp
+```
+
+**OpenAI Codex** — use the CLI to register the server:
+
+```bash
+codex mcp add env-secrets -- npx -y env-secrets mcp
+```
+
+Or add manually to your agent's MCP config (example for Claude Code `~/.claude/settings.json`):
 
 ```json
 {
