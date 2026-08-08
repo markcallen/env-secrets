@@ -15,6 +15,10 @@ You are a publishing specialist for REST API services deployed as Docker contain
 - Include `livenessProbe` and `readinessProbe` in the Helm chart template referencing the health endpoint.
 - Distinguish private (GHCR) vs public (Docker Hub) image publishing based on the API's audience.
 
+## Activation
+
+No app deployment model is configured (`deploymentModel: none`). Deployment guidance is reference-only. Deployment is inactive: keep library, SDK, CLI, and optional container publishing guidance active, but do not create deploy-on-main workflows, deployment-state updates, Kubernetes, serverless, hosted-platform, or self-managed server deployment ownership until the repository sets an active `deploymentModel`.
+
 ## Release Model
 
 REST API apps use **continuous deployment** — every merge to `main` deploys. See the web app publishing rule for the full `deploy-web.yml` workflow template; the same workflow applies here. The only differences are the health endpoint requirements and Helm chart probe configuration.
@@ -78,9 +82,9 @@ app.get('/readyz', async (_req, res) => {
 });
 ```
 
-## Helm Chart: Probes Configuration
+## Kubernetes Helm Chart: Probes Configuration
 
-Add `livenessProbe` and `readinessProbe` to the deployment template in your Helm chart:
+Apply this section only when `deploymentModel` is `kubernetes`. Add `livenessProbe` and `readinessProbe` to the deployment template in your Helm chart:
 
 ```yaml
 # charts/<your-chart>/templates/deployment.yaml
@@ -156,3 +160,44 @@ Grant `packages: write` to the build job for GHCR. Remove it for Docker Hub.
 - When a REST API service is deployed to Kubernetes via a Helm chart.
 - When every merge to `main` should trigger a new deployment.
 - When the API needs health and readiness probes for safe Kubernetes lifecycle management.
+
+## Helm Chart: Probes Configuration
+
+Add `livenessProbe` and `readinessProbe` to the deployment template in your Helm chart:
+
+```yaml
+# charts/<your-chart>/templates/deployment.yaml
+containers:
+  - name: { { .Chart.Name } }
+    image: '{{ .Values.image.repository }}@{{ .Values.image.digest }}'
+    ports:
+      - name: http
+        containerPort: { { .Values.service.port } }
+    livenessProbe:
+      httpGet:
+        path: /healthz
+        port: http
+      initialDelaySeconds: 10
+      periodSeconds: 15
+      failureThreshold: 3
+    readinessProbe:
+      httpGet:
+        path: /readyz
+        port: http
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      failureThreshold: 3
+      successThreshold: 1
+```
+
+And in `values.yaml`:
+
+```yaml
+image:
+  repository: ghcr.io/OWNER/IMAGE
+  tag: latest
+  digest: '' # filled in by the CD workflow
+
+service:
+  port: 8080
+```

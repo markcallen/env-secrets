@@ -12,9 +12,11 @@
     "testing"
   ],
   "skills": ["github-health-check"],
-  "ballastVersion": "5.9.2",
+  "ballastVersion": "5.14.0",
   "languages": ["typescript"],
   "paths": {
-    "typescript": ["."]
-  }
+    "typescript": ["src/mcp", "src", "."]
+  },
+  "taskSystem": "github",
+  "deploymentModel": "none"
 }

@@ -159,7 +159,7 @@ yarn build
 
 ## Installed agent rules
 
-Created by [Ballast](https://github.com/everydaydevopsio/ballast) v5.9.2. Do not edit this section.
+Created by [Ballast](https://github.com/everydaydevopsio/ballast) v5.14.0. Do not edit this section.
 
 Read and follow these rule files in `.codex/rules/` when they apply:
 
@@ -170,22 +170,22 @@ Read and follow these rule files in `.codex/rules/` when they apply:
 - `.codex/rules/docs.md` — Documentation specialist - GitHub Markdown docs by default, or maintain existing Docusaurus sites with publish-docs automation
 - `.codex/rules/cicd.md` — CI/CD specialist - pipeline design, quality gates, and deployment
 - `.codex/rules/observability.md` — Observability specialist - logging, tracing, metrics, and SLOs
-- `.codex/rules/publishing-api.md` — REST API publishing specialist - Docker CD with Kubernetes health probes and Helm chart update
+- `.codex/rules/publishing-api.md` — REST API publishing specialist - Docker or platform service CD with runtime health checks
 - `.codex/rules/publishing-apps.md` — App publishing specialist - npmjs for Node apps, PyPI for Python apps, GitHub Releases for Go apps
 - `.codex/rules/publishing-apt.md` — APT/deb package publishing specialist - GoReleaser nfpms and GitHub Releases
 - `.codex/rules/publishing-brew.md` — Homebrew tap publishing specialist - GoReleaser brews block and tap repo setup
 - `.codex/rules/publishing-cli.md` — CLI publishing specialist - GoReleaser for Go, npmjs for Node, PyPI for Python
 - `.codex/rules/publishing-libraries.md` — Library publishing specialist - npmjs for TypeScript, PyPI for Python, GitHub tags/releases for Go
 - `.codex/rules/publishing-sdks.md` — SDK publishing specialist - npmjs for TypeScript SDKs, PyPI for Python SDKs, GitHub tags/releases for Go SDKs
-- `.codex/rules/publishing-web.md` — Web app publishing specialist - Docker to GHCR/Docker Hub with Helm chart CD on push to main
-- `.codex/rules/git-hooks.md` — Git hook specialist - configure pre-commit, pre-push, and Husky workflows that match the repository layout
+- `.codex/rules/publishing-web.md` — Web app publishing specialist - Docker or platform app CD on push to main
+- `.codex/rules/git-hooks.md` — Rules for git-hooks
 - `.codex/rules/typescript-linting.md` — TypeScript linting specialist - implements comprehensive linting and code formatting for TypeScript/JavaScript projects
 - `.codex/rules/typescript-logging.md` — Centralized logging specialist - configures Pino with Fluentd for Node/Next.js, and pino-browser to /api/logs
 - `.codex/rules/typescript-testing.md` — Testing specialist - sets up Jest (default) or Vitest for Vite projects, 50% coverage, and test step in build GitHub Action
 
 ## Installed skills
 
-Created by [Ballast](https://github.com/everydaydevopsio/ballast) v5.9.2. Do not edit this section.
+Created by [Ballast](https://github.com/everydaydevopsio/ballast) v5.14.0. Do not edit this section.
 
 Read and use these skill files in `.codex/rules/` when they are relevant:
 

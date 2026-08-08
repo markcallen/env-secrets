@@ -269,4 +269,90 @@ describe('AWS Config File E2E', () => {
     expect(result.stderr).toContain('was not found');
     expect(fs.existsSync(path.join(tempDir, '.env-secrets.yml'))).toBe(false);
   });
+
+  describe('auto-dispatch from provider field', () => {
+    test('runs without aws subcommand when provider is aws in config', async () => {
+      const secret = await createTestSecret({
+        name: `auto-dispatch-${Date.now()}`,
+        value: '{"AUTO_KEY": "auto-value"}'
+      });
+
+      fs.writeFileSync(
+        path.join(tempDir, '.env-secrets.yml'),
+        `provider: aws\nsecrets:\n  - name: ${secret.prefixedName}\n`
+      );
+
+      const result = await cliWithEnv(
+        ['echo', 'test'],
+        getLocalStackEnv(),
+        tempDir
+      );
+
+      expect(result.code).toBe(0);
+      const env = JSON.parse(result.stdout.trim()) as Record<string, string>;
+      expect(env.AUTO_KEY).toBe('auto-value');
+    });
+
+    test('runs without aws subcommand and no extra args when provider is aws', async () => {
+      const secret = await createTestSecret({
+        name: `auto-dispatch-noargs-${Date.now()}`,
+        value: '{"NOARGS_KEY": "noargs-value"}'
+      });
+
+      fs.writeFileSync(
+        path.join(tempDir, '.env-secrets.yml'),
+        `provider: aws\nsecrets:\n  - name: ${secret.prefixedName}\n`
+      );
+
+      const result = await cliWithEnv([], getLocalStackEnv(), tempDir);
+
+      expect(result.code).toBe(0);
+    });
+
+    test('still works with explicit aws subcommand when provider is aws', async () => {
+      const secret = await createTestSecret({
+        name: `auto-dispatch-explicit-${Date.now()}`,
+        value: '{"EXPLICIT_KEY": "explicit-value"}'
+      });
+
+      fs.writeFileSync(
+        path.join(tempDir, '.env-secrets.yml'),
+        `provider: aws\nsecrets:\n  - name: ${secret.prefixedName}\n`
+      );
+
+      const result = await cliWithEnv(
+        ['aws', 'echo', 'test'],
+        getLocalStackEnv(),
+        tempDir
+      );
+
+      expect(result.code).toBe(0);
+      const env = JSON.parse(result.stdout.trim()) as Record<string, string>;
+      expect(env.EXPLICIT_KEY).toBe('explicit-value');
+    });
+
+    test('auto-dispatches when target program flags follow -- separator', async () => {
+      const secret = await createTestSecret({
+        name: `auto-dispatch-dashes-${Date.now()}`,
+        value: '{"DASHES_KEY": "dashes-value"}'
+      });
+
+      fs.writeFileSync(
+        path.join(tempDir, '.env-secrets.yml'),
+        `provider: aws\nsecrets:\n  - name: ${secret.prefixedName}\n`
+      );
+
+      // --help after -- belongs to the target program, not env-secrets;
+      // auto-dispatch should still fire.
+      const result = await cliWithEnv(
+        ['--', 'echo', '--help'],
+        getLocalStackEnv(),
+        tempDir
+      );
+
+      expect(result.code).toBe(0);
+      const env = JSON.parse(result.stdout.trim()) as Record<string, string>;
+      expect(env.DASHES_KEY).toBe('dashes-value');
+    });
+  });
 });

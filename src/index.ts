@@ -935,4 +935,36 @@ program
     child.on('exit', (code) => process.exit(code ?? 0));
   });
 
+// Auto-dispatch to the provider subcommand when no subcommand is given.
+// Allows `env-secrets echo foo` to work like `env-secrets aws echo foo`
+// when the config file has `provider: aws`.
+{
+  const knownSubcommands = ['aws', 'mcp'];
+  // Only vault providers should be auto-dispatched; 'mcp' is a service command, not a provider.
+  const knownProviders = ['aws'];
+  const topLevelFlags = new Set(['-h', '--help', '-V', '--version']);
+  const rawArgs = process.argv.slice(2);
+  // Only inspect args before '--' so flags meant for the target program don't interfere.
+  const doubleDashIdx = rawArgs.indexOf('--');
+  const ownArgs =
+    doubleDashIdx >= 0 ? rawArgs.slice(0, doubleDashIdx) : rawArgs;
+  const hasTopLevelFlag = ownArgs.some((a) => topLevelFlags.has(a));
+  const firstPositional = ownArgs.find((a) => !a.startsWith('-'));
+  const hasSubcommand =
+    firstPositional !== undefined && knownSubcommands.includes(firstPositional);
+
+  if (!hasTopLevelFlag && !hasSubcommand) {
+    try {
+      const config = loadConfig();
+      if (config?.provider && knownProviders.includes(config.provider)) {
+        process.argv.splice(2, 0, config.provider);
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(err instanceof Error ? err.message : String(err));
+      process.exit(1);
+    }
+  }
+}
+
 program.parse();
