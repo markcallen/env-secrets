@@ -5,7 +5,7 @@ description: Use env-secrets as an MCP server to give AI agents secure access to
 
 # MCP Server
 
-The `env-secrets` MCP (Model Context Protocol) server lets AI agents — Claude Code, OpenAI Codex, Gemini CLI, and others — work with AWS Secrets Manager secrets during an agentic session.
+The `env-secrets` MCP (Model Context Protocol) server lets AI agents — Claude Code, OpenAI Codex, and others — work with AWS Secrets Manager secrets during an agentic session.
 
 **Transport: stdio only.** The server runs as a subprocess launched by the MCP host. No daemon, no open port.
 
@@ -31,7 +31,17 @@ To read or write a secret value, the agent uses `get_command` to produce a CLI c
 
 ### Claude Code
 
-Add to `~/.claude/settings.json` (global) or `.claude/settings.json` (project-level):
+Use the `claude mcp add` CLI command to register the server:
+
+```bash
+# Using npx (no global install required)
+claude mcp add env-secrets -e AWS_REGION=us-east-1 -- npx -y env-secrets mcp
+
+# Using a global install (npm install -g env-secrets)
+claude mcp add env-secrets -e AWS_REGION=us-east-1 -- env-secrets-mcp
+```
+
+Or add manually to `~/.claude/settings.json` (global) or `.claude/settings.json` (project-level):
 
 ```json
 {
@@ -47,21 +57,21 @@ Add to `~/.claude/settings.json` (global) or `.claude/settings.json` (project-le
 }
 ```
 
-With a global install (`npm install -g env-secrets`):
-
-```json
-{
-  "mcpServers": {
-    "env-secrets": {
-      "command": "env-secrets-mcp"
-    }
-  }
-}
-```
-
 Restart Claude Code after saving. The tools `list_secrets`, `describe_secret`, and `get_command` are immediately available in the session.
 
 ### OpenAI Codex
+
+Use the `codex mcp add` CLI command to register the server:
+
+```bash
+# Using npx (no global install required)
+codex mcp add env-secrets -e AWS_REGION=us-east-1 -- npx -y env-secrets mcp
+
+# Using a global install (npm install -g env-secrets)
+codex mcp add env-secrets -e AWS_REGION=us-east-1 -- env-secrets-mcp
+```
+
+Or add manually to `~/.codex/config.toml` or project `codex.toml`:
 
 ```toml
 [[mcp_servers]]
@@ -70,28 +80,6 @@ command = ["npx", "-y", "env-secrets", "mcp"]
 
 [mcp_servers.env]
 AWS_REGION = "us-east-1"
-```
-
-With a global install:
-
-```toml
-[[mcp_servers]]
-name = "env-secrets"
-command = ["env-secrets-mcp"]
-```
-
-### Gemini CLI
-
-```json
-{
-  "mcpServers": {
-    "env-secrets": {
-      "command": "npx",
-      "args": ["-y", "env-secrets", "mcp"],
-      "env": { "AWS_REGION": "us-east-1" }
-    }
-  }
-}
 ```
 
 ---
