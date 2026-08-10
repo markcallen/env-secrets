@@ -728,4 +728,79 @@ describe('index.ts CLI functionality', () => {
       expect(mockSpawn).not.toHaveBeenCalled();
     });
   });
+
+  describe('multiple --secret values', () => {
+    it('should fetch each named secret and merge their keys', async () => {
+      mockSecretsmanager
+        .mockResolvedValueOnce({ API_KEY: 'key-one' })
+        .mockResolvedValueOnce({ DB_PASS: 'pass-two' });
+
+      const secretNames = ['app/api', 'app/db'];
+      let envSecrets: Record<string, string> = {};
+
+      for (const name of secretNames) {
+        const secrets = await mockSecretsmanager({ secret: name });
+        envSecrets = {
+          ...envSecrets,
+          ...Object.fromEntries(
+            Object.entries(secrets).map(([k, v]) => [k, String(v)])
+          )
+        };
+      }
+
+      expect(mockSecretsmanager).toHaveBeenCalledTimes(2);
+      expect(mockSecretsmanager).toHaveBeenNthCalledWith(1, {
+        secret: 'app/api'
+      });
+      expect(mockSecretsmanager).toHaveBeenNthCalledWith(2, {
+        secret: 'app/db'
+      });
+      expect(envSecrets).toEqual({ API_KEY: 'key-one', DB_PASS: 'pass-two' });
+    });
+
+    it('should let a later secret override a key from an earlier secret', async () => {
+      mockSecretsmanager
+        .mockResolvedValueOnce({ SHARED: 'first', ONLY_A: 'a' })
+        .mockResolvedValueOnce({ SHARED: 'second', ONLY_B: 'b' });
+
+      const secretNames = ['app/first', 'app/second'];
+      let envSecrets: Record<string, string> = {};
+
+      for (const name of secretNames) {
+        const secrets = await mockSecretsmanager({ secret: name });
+        envSecrets = {
+          ...envSecrets,
+          ...Object.fromEntries(
+            Object.entries(secrets).map(([k, v]) => [k, String(v)])
+          )
+        };
+      }
+
+      expect(envSecrets).toEqual({
+        SHARED: 'second',
+        ONLY_A: 'a',
+        ONLY_B: 'b'
+      });
+    });
+
+    it('should treat a single-element --secret array the same as before', async () => {
+      mockSecretsmanager.mockResolvedValueOnce({ FOO: 'bar' });
+
+      const secretNames = ['app/single'];
+      let envSecrets: Record<string, string> = {};
+
+      for (const name of secretNames) {
+        const secrets = await mockSecretsmanager({ secret: name });
+        envSecrets = {
+          ...envSecrets,
+          ...Object.fromEntries(
+            Object.entries(secrets).map(([k, v]) => [k, String(v)])
+          )
+        };
+      }
+
+      expect(mockSecretsmanager).toHaveBeenCalledTimes(1);
+      expect(envSecrets).toEqual({ FOO: 'bar' });
+    });
+  });
 });
