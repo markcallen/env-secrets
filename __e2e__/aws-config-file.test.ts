@@ -175,6 +175,69 @@ describe('AWS Config File E2E', () => {
     expect(result.stderr).toContain('Missing required option --secret');
   });
 
+  test('multiple -s flags fetch and merge all named secrets', async () => {
+    const ts = Date.now();
+    const secret1 = await createTestSecret({
+      name: `cli-multi1-${ts}`,
+      value: '{"API_KEY": "key-one"}'
+    });
+    const secret2 = await createTestSecret({
+      name: `cli-multi2-${ts}`,
+      value: '{"DB_PASS": "pass-two"}'
+    });
+
+    const result = await cliWithEnv(
+      [
+        'aws',
+        '-s',
+        secret1.prefixedName,
+        '-s',
+        secret2.prefixedName,
+        'echo',
+        'test'
+      ],
+      getLocalStackEnv(),
+      tempDir
+    );
+
+    expect(result.code).toBe(0);
+    const env = JSON.parse(result.stdout.trim()) as Record<string, string>;
+    expect(env.API_KEY).toBe('key-one');
+    expect(env.DB_PASS).toBe('pass-two');
+  });
+
+  test('multiple -s flags: later secret wins on key collision', async () => {
+    const ts = Date.now();
+    const secret1 = await createTestSecret({
+      name: `cli-collision1-${ts}`,
+      value: '{"SHARED": "first", "ONLY_A": "a"}'
+    });
+    const secret2 = await createTestSecret({
+      name: `cli-collision2-${ts}`,
+      value: '{"SHARED": "second", "ONLY_B": "b"}'
+    });
+
+    const result = await cliWithEnv(
+      [
+        'aws',
+        '-s',
+        secret1.prefixedName,
+        '-s',
+        secret2.prefixedName,
+        'echo',
+        'test'
+      ],
+      getLocalStackEnv(),
+      tempDir
+    );
+
+    expect(result.code).toBe(0);
+    const env = JSON.parse(result.stdout.trim()) as Record<string, string>;
+    expect(env.SHARED).toBe('second');
+    expect(env.ONLY_A).toBe('a');
+    expect(env.ONLY_B).toBe('b');
+  });
+
   test('accepts .env-secrets.json config format', async () => {
     const secret = await createTestSecret({
       name: `config-json-${Date.now()}`,
