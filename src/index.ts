@@ -136,7 +136,7 @@ const awsCommand = program
   .command('aws')
   .description('get secrets from AWS secrets manager')
   .addArgument(new Argument('[program...]', 'program to run'))
-  .option('-s, --secret <secret>', 'secret to get')
+  .option('-s, --secret <secret...>', 'secret to get')
   .option('-p, --profile <profile>', 'profile to use')
   .option('-r, --region <region>', 'region to use')
   .option(
@@ -169,7 +169,7 @@ const awsCommand = program
       return;
     }
 
-    if (!options.secret && !config?.secrets?.length) {
+    if (!options.secret?.length && !config?.secrets?.length) {
       exitWithError(
         new Error(
           'Missing required option --secret for this command. Alternatively, create a .env-secrets.yml, .env-secrets.yaml, or .env-secrets.json config file in the current directory or your home directory.'
@@ -182,7 +182,7 @@ const awsCommand = program
     const effectiveRegion = options.region || config?.region;
 
     if (options.createConfig) {
-      if (!options.secret) {
+      if (!options.secret?.length) {
         exitWithError(new Error('--create-config requires --secret.'));
         return;
       }
@@ -194,7 +194,7 @@ const awsCommand = program
 
       try {
         const metadata = await getSecretMetadata({
-          name: options.secret,
+          name: options.secret[0],
           profile: effectiveProfile,
           region: effectiveRegion
         });
@@ -203,7 +203,7 @@ const awsCommand = program
           provider: 'aws',
           profile: effectiveProfile,
           region: resolveConfigFileRegion(effectiveRegion, metadata.arn),
-          secrets: [{ name: options.secret }]
+          secrets: (options.secret as string[]).map((name) => ({ name }))
         });
       } catch (err) {
         exitWithError(err);
@@ -217,33 +217,26 @@ const awsCommand = program
 
     let envSecrets: Record<string, string> = {};
 
-    if (options.secret) {
+    const secretEntries: Array<{ name: string; keys?: string[] }> = options
+      .secret?.length
+      ? (options.secret as string[]).map((name) => ({ name }))
+      : config?.secrets ?? [];
+
+    for (const secretEntry of secretEntries) {
       const secrets = await secretsmanager({
-        secret: options.secret,
+        secret: secretEntry.name,
         profile: effectiveProfile,
         region: effectiveRegion
       });
       debug(secrets);
-      envSecrets = Object.fromEntries(
-        Object.entries(secrets).map(([key, value]) => [key, String(value)])
+      const filtered = filterSecretKeys(
+        secrets as Record<string, unknown>,
+        secretEntry.keys
       );
-    } else {
-      for (const secretEntry of config?.secrets ?? []) {
-        const secrets = await secretsmanager({
-          secret: secretEntry.name,
-          profile: effectiveProfile,
-          region: effectiveRegion
-        });
-        debug(secrets);
-        const filtered = filterSecretKeys(
-          secrets as Record<string, unknown>,
-          secretEntry.keys
-        );
-        const stringified = Object.fromEntries(
-          Object.entries(filtered).map(([key, value]) => [key, String(value)])
-        );
-        envSecrets = { ...envSecrets, ...stringified };
-      }
+      const stringified = Object.fromEntries(
+        Object.entries(filtered).map(([key, value]) => [key, String(value)])
+      );
+      envSecrets = { ...envSecrets, ...stringified };
     }
 
     if (options.output) {
