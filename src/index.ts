@@ -136,7 +136,12 @@ const awsCommand = program
   .command('aws')
   .description('get secrets from AWS secrets manager')
   .addArgument(new Argument('[program...]', 'program to run'))
-  .option('-s, --secret <secret...>', 'secret to get')
+  .option(
+    '-s, --secret <secret>',
+    'secret to get (can be repeated)',
+    (val: string, prev: string[]) => [...prev, val],
+    [] as string[]
+  )
   .option('-p, --profile <profile>', 'profile to use')
   .option('-r, --region <region>', 'region to use')
   .option(
