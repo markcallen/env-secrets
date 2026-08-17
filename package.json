@@ -61,7 +61,7 @@
     "@modelcontextprotocol/sdk": "^1.30.0",
     "commander": "^9.5.0",
     "debug": "^4.4.3",
-    "js-yaml": "^5.2.3"
+    "js-yaml": "^5.3.0"
   },
   "lint-staged": {
     "**/*.js": [
