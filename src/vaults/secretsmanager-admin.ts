@@ -398,14 +398,15 @@ export const copySecret = async (
   options: SecretCopyOptions
 ): Promise<SecretCopyResult> => {
   validateSecretName(options.name);
-  if (!options.targetRegion.trim()) {
+  const targetRegion = options.targetRegion.trim();
+  if (!targetRegion) {
     throw new Error('--target-region is required.');
   }
 
   debug('copySecret called', {
     name: options.name,
     sourceRegion: options.region,
-    targetRegion: options.targetRegion
+    targetRegion
   });
 
   const [value, metadata] = await Promise.all([
@@ -427,7 +428,7 @@ export const copySecret = async (
     description: metadata.description,
     kmsKeyId: options.targetKmsKeyId,
     profile: options.profile,
-    region: options.targetRegion
+    region: targetRegion
   };
 
   try {
@@ -439,7 +440,7 @@ export const copySecret = async (
     return {
       ...result,
       sourceRegion: options.region,
-      targetRegion: options.targetRegion,
+      targetRegion,
       status: 'created'
     };
   } catch (createError: unknown) {
@@ -454,7 +455,7 @@ export const copySecret = async (
     return {
       ...result,
       sourceRegion: options.region,
-      targetRegion: options.targetRegion,
+      targetRegion,
       status: 'updated'
     };
   }

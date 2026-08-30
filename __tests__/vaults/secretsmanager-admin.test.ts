@@ -341,7 +341,7 @@ describe('secretsmanager-admin', () => {
     const result = await copySecret({
       name: 'app/source',
       region: 'us-east-1',
-      targetRegion: 'us-west-2'
+      targetRegion: ' us-west-2 '
     });
 
     expect(mockSecretsManagerClient).toHaveBeenCalledWith(

@@ -248,7 +248,7 @@ source secrets.env
    env-secrets aws secret copy -n my-app/dev -r us-east-1 --target-region us-west-2 --output json
    ```
 
-   `copy` reads the source secret from `-r/--region`, writes to `--target-region`, creates the target secret if it does not exist, and overwrites the target `SecretString` if it does. Tags and description are copied on create; existing target tags are not changed on overwrite. Use `--target-kms-key-id` to choose a target-region KMS key.
+   `copy` reads the source secret from `-r/--region`, writes to `--target-region`, creates the target secret if it does not exist, and overwrites the target `SecretString` if it does. Tags and description are copied on create; on overwrite, the description and secret value are updated while existing target tags are not changed. Use `--target-kms-key-id` to choose a target-region KMS key.
 
 6. **Update or delete a single key in an existing JSON secret:**
 
