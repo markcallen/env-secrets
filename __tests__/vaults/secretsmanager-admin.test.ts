@@ -424,6 +424,36 @@ describe('secretsmanager-admin', () => {
     expect(mockSecretsManagerSend).not.toHaveBeenCalled();
   });
 
+  it('requires target region to differ from source region when copying a secret', async () => {
+    await expect(
+      copySecret({
+        name: 'app/source',
+        region: ' us-east-1 ',
+        targetRegion: 'us-east-1'
+      })
+    ).rejects.toThrow('--target-region must be different from --region.');
+
+    expect(mockSecretsManagerSend).not.toHaveBeenCalled();
+  });
+
+  it('reports copy-specific errors for binary secrets', async () => {
+    mockSecretsManagerSend
+      .mockResolvedValueOnce({
+        SecretBinary: new Uint8Array([1, 2, 3])
+      })
+      .mockResolvedValueOnce({
+        Name: 'app/source'
+      });
+
+    await expect(
+      copySecret({
+        name: 'app/source',
+        region: 'us-east-1',
+        targetRegion: 'us-west-2'
+      })
+    ).rejects.toThrow('cannot be copied');
+  });
+
   it('propagates create failures that are not overwrite conflicts', async () => {
     mockSecretsManagerSend
       .mockResolvedValueOnce({

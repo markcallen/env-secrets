@@ -390,7 +390,10 @@ export const secretExists = async (
 };
 
 export const getSecretString = async (
-  options: AwsSecretCommandOptions & { name: string }
+  options: AwsSecretCommandOptions & {
+    name: string;
+    operation?: 'copy' | 'edit';
+  }
 ): Promise<string> => {
   validateSecretName(options.name);
   debug('getSecretString called', { name: options.name });
@@ -402,8 +405,10 @@ export const getSecretString = async (
     );
 
     if (typeof result.SecretString !== 'string') {
+      const action =
+        options.operation === 'copy' ? 'copied' : 'edited with append/remove';
       throw new Error(
-        `Secret "${options.name}" is not stored as a string value and cannot be edited with append/remove.`
+        `Secret "${options.name}" is not stored as a SecretString value and cannot be ${action}.`
       );
     }
 
@@ -421,6 +426,9 @@ export const copySecret = async (
   if (!targetRegion) {
     throw new Error('--target-region is required.');
   }
+  if (options.region?.trim() === targetRegion) {
+    throw new Error('--target-region must be different from --region.');
+  }
 
   debug('copySecret called', {
     name: options.name,
@@ -432,7 +440,8 @@ export const copySecret = async (
     getSecretString({
       name: options.name,
       profile: options.profile,
-      region: options.region
+      region: options.region,
+      operation: 'copy'
     }),
     getSecretMetadata({
       name: options.name,

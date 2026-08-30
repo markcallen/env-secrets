@@ -317,13 +317,13 @@ source secrets.env
 
 10. **Delete with explicit confirmation:**
 
-    ```bash
-    # With a recovery window (7–30 days)
-    env-secrets aws secret delete -n my-app/dev/raw --recovery-days 7 --yes -r us-east-1
+```bash
+# With a recovery window (7–30 days)
+env-secrets aws secret delete -n my-app/dev/raw --recovery-days 7 --yes -r us-east-1
 
-    # Permanent delete with no recovery window
-    env-secrets aws secret delete -n my-app/dev/raw --force-delete-without-recovery --yes -r us-east-1
-    ```
+# Permanent delete with no recovery window
+env-secrets aws secret delete -n my-app/dev/raw --force-delete-without-recovery --yes -r us-east-1
+```
 
 ### Secret Management Safety Notes
 
