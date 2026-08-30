@@ -45,6 +45,21 @@ export interface SecretDeleteOptions extends AwsSecretCommandOptions {
   forceDeleteWithoutRecovery?: boolean;
 }
 
+export interface SecretCopyOptions extends AwsSecretCommandOptions {
+  name: string;
+  targetRegion: string;
+  targetKmsKeyId?: string;
+}
+
+export interface SecretCopyResult {
+  name?: string;
+  arn?: string;
+  versionId?: string;
+  sourceRegion?: string;
+  targetRegion: string;
+  status: 'created' | 'updated';
+}
+
 export interface SecretSummary {
   name: string;
   arn?: string;
@@ -117,6 +132,19 @@ const tagsToRecord = (tags?: Tag[]): Record<string, string> | undefined => {
   }
 
   return Object.keys(result).length > 0 ? result : undefined;
+};
+
+const tagsRecordToInput = (
+  tags?: Record<string, string>
+): string[] | undefined => {
+  if (!tags) {
+    return undefined;
+  }
+
+  const entries = Object.entries(tags);
+  return entries.length > 0
+    ? entries.map(([key, value]) => `${key}=${value}`)
+    : undefined;
 };
 
 const mapAwsError = (error: unknown, secretName?: string): never => {
@@ -363,6 +391,72 @@ export const getSecretString = async (
     return result.SecretString;
   } catch (error: unknown) {
     return mapAwsError(error, options.name);
+  }
+};
+
+export const copySecret = async (
+  options: SecretCopyOptions
+): Promise<SecretCopyResult> => {
+  validateSecretName(options.name);
+  if (!options.targetRegion.trim()) {
+    throw new Error('--target-region is required.');
+  }
+
+  debug('copySecret called', {
+    name: options.name,
+    sourceRegion: options.region,
+    targetRegion: options.targetRegion
+  });
+
+  const [value, metadata] = await Promise.all([
+    getSecretString({
+      name: options.name,
+      profile: options.profile,
+      region: options.region
+    }),
+    getSecretMetadata({
+      name: options.name,
+      profile: options.profile,
+      region: options.region
+    })
+  ]);
+
+  const targetOptions = {
+    name: options.name,
+    value,
+    description: metadata.description,
+    kmsKeyId: options.targetKmsKeyId,
+    profile: options.profile,
+    region: options.targetRegion
+  };
+
+  try {
+    const result = await createSecret({
+      ...targetOptions,
+      tags: tagsRecordToInput(metadata.tags)
+    });
+
+    return {
+      ...result,
+      sourceRegion: options.region,
+      targetRegion: options.targetRegion,
+      status: 'created'
+    };
+  } catch (createError: unknown) {
+    const message =
+      createError instanceof Error ? createError.message : String(createError);
+    if (!/already exists/i.test(message)) {
+      throw createError;
+    }
+
+    const result = await updateSecret(targetOptions);
+
+    return {
+      ...result,
+      sourceRegion: options.region,
+      targetRegion: options.targetRegion,
+      status: 'updated'
+    };
   }
 };
 

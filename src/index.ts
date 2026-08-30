@@ -11,6 +11,7 @@ import { LIB_VERSION } from './version';
 import { secretsmanager } from './vaults/secretsmanager';
 import {
   createSecret,
+  copySecret,
   updateSecret,
   listSecrets,
   getSecretMetadata,
@@ -564,6 +565,55 @@ secretCommand
       if (failed > 0) {
         process.exitCode = 1;
       }
+    } catch (error: unknown) {
+      exitWithError(error);
+    }
+  });
+
+secretCommand
+  .command('copy')
+  .description('copy a secret to another AWS region')
+  .requiredOption('-n, --name <name>', 'secret name')
+  .requiredOption('--target-region <region>', 'target region to copy to')
+  .option(
+    '--target-kms-key-id <kmsKeyId>',
+    'kms key id to use in the target region'
+  )
+  .option('-p, --profile <profile>', 'profile to use')
+  .option('-r, --region <region>', 'source region to copy from')
+  .option('--output <format>', 'output format: json|table')
+  .action(async (options, command) => {
+    try {
+      const { profile, region } = resolveAwsScope(options, command);
+      const output = resolveOutputFormat(options, command);
+      const result = await copySecret({
+        name: options.name,
+        targetRegion: options.targetRegion,
+        targetKmsKeyId: options.targetKmsKeyId,
+        profile,
+        region
+      });
+      const row = {
+        name: result.name,
+        arn: result.arn,
+        versionId: result.versionId,
+        sourceRegion: result.sourceRegion,
+        targetRegion: result.targetRegion,
+        status: result.status
+      };
+
+      printData(
+        asOutputFormat(output),
+        [
+          { key: 'name', label: 'Name' },
+          { key: 'arn', label: 'ARN' },
+          { key: 'versionId', label: 'VersionId' },
+          { key: 'sourceRegion', label: 'SourceRegion' },
+          { key: 'targetRegion', label: 'TargetRegion' },
+          { key: 'status', label: 'Status' }
+        ],
+        [row]
+      );
     } catch (error: unknown) {
       exitWithError(error);
     }

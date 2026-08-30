@@ -34,6 +34,7 @@ jest.mock('@aws-sdk/credential-providers');
 
 import {
   createSecret,
+  copySecret,
   updateSecret,
   listSecrets,
   getSecretMetadata,
@@ -319,6 +320,130 @@ describe('secretsmanager-admin', () => {
     await expect(
       getSecretString({ name: 'app/existing', region: 'us-east-1' })
     ).rejects.toThrow('cannot be edited with append/remove');
+  });
+
+  it('copies a secret to the target region by creating it when missing', async () => {
+    mockSecretsManagerSend
+      .mockResolvedValueOnce({
+        SecretString: '{"API_KEY":"abc"}'
+      })
+      .mockResolvedValueOnce({
+        Name: 'app/source',
+        Description: 'Copied secret',
+        Tags: [{ Key: 'env', Value: 'dev' }]
+      })
+      .mockResolvedValueOnce({
+        Name: 'app/source',
+        ARN: 'arn:target',
+        VersionId: 'v1'
+      });
+
+    const result = await copySecret({
+      name: 'app/source',
+      region: 'us-east-1',
+      targetRegion: 'us-west-2'
+    });
+
+    expect(mockSecretsManagerClient).toHaveBeenCalledWith(
+      expect.objectContaining({ region: 'us-west-2' })
+    );
+    expect(mockSecretsManagerSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          Name: 'app/source',
+          SecretString: '{"API_KEY":"abc"}',
+          Description: 'Copied secret',
+          Tags: [{ Key: 'env', Value: 'dev' }]
+        })
+      })
+    );
+    expect(result).toEqual({
+      name: 'app/source',
+      arn: 'arn:target',
+      versionId: 'v1',
+      sourceRegion: 'us-east-1',
+      targetRegion: 'us-west-2',
+      status: 'created'
+    });
+  });
+
+  it('copies a secret to the target region by overwriting it when present', async () => {
+    mockSecretsManagerSend
+      .mockResolvedValueOnce({
+        SecretString: '{"API_KEY":"abc"}'
+      })
+      .mockResolvedValueOnce({
+        Name: 'app/source',
+        Description: 'Copied secret'
+      })
+      .mockRejectedValueOnce({
+        name: 'AlreadyExistsException'
+      })
+      .mockResolvedValueOnce({
+        Name: 'app/source',
+        ARN: 'arn:target',
+        VersionId: 'v2'
+      });
+
+    const result = await copySecret({
+      name: 'app/source',
+      region: 'us-east-1',
+      targetRegion: 'us-west-2',
+      targetKmsKeyId: 'alias/target'
+    });
+
+    expect(mockSecretsManagerSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        input: expect.objectContaining({
+          SecretId: 'app/source',
+          SecretString: '{"API_KEY":"abc"}',
+          Description: 'Copied secret',
+          KmsKeyId: 'alias/target'
+        })
+      })
+    );
+    expect(result).toEqual({
+      name: 'app/source',
+      arn: 'arn:target',
+      versionId: 'v2',
+      sourceRegion: 'us-east-1',
+      targetRegion: 'us-west-2',
+      status: 'updated'
+    });
+  });
+
+  it('requires a non-empty target region when copying a secret', async () => {
+    await expect(
+      copySecret({
+        name: 'app/source',
+        region: 'us-east-1',
+        targetRegion: ' '
+      })
+    ).rejects.toThrow('--target-region is required.');
+
+    expect(mockSecretsManagerSend).not.toHaveBeenCalled();
+  });
+
+  it('propagates create failures that are not overwrite conflicts', async () => {
+    mockSecretsManagerSend
+      .mockResolvedValueOnce({
+        SecretString: '{"API_KEY":"abc"}'
+      })
+      .mockResolvedValueOnce({
+        Name: 'app/source'
+      })
+      .mockRejectedValueOnce({
+        name: 'AccessDeniedException',
+        message: 'Access denied'
+      });
+
+    await expect(
+      copySecret({
+        name: 'app/source',
+        region: 'us-east-1',
+        targetRegion: 'us-west-2'
+      })
+    ).rejects.toThrow('Access denied');
   });
 
   it('deletes secret with recovery options', async () => {
