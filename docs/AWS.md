@@ -331,7 +331,7 @@ source secrets.env
 - `create`, `update`, and `append` accept `--value`, `--value-stdin`, `--file`, or `--prompt` (use only one).
 - `create` always stores `SecretString` as a JSON object.
 - `append` and `remove` require the secret value to be a JSON object.
-- `copy` copies string secrets only. It creates a missing target-region secret and overwrites the target secret value when the target already exists.
+- `copy` copies `SecretString` payloads, including JSON secrets. It does not copy `SecretBinary` payloads. It creates a missing target-region secret and overwrites the target secret value when the target already exists.
 - `remove` will error if it would leave the secret with zero keys — use `env-secrets aws secret delete` to remove the entire secret.
 - `upsert/import --file --name` parses `export KEY=value` and `KEY=value`, stores them as one JSON secret object, ignores blank lines/comments, and reports `created`, `updated`, `skipped`, and `failed`.
 - Use `--prompt` to enter sensitive values interactively with no echo — the value is read directly from the terminal and never appears in shell history, process arguments, or any pipe. Add `--confirm` to enter the value twice and catch typos.

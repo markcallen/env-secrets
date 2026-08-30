@@ -85,9 +85,20 @@ interface AWSLikeError {
   message?: string;
 }
 
+class AwsSecretsManagerError extends Error {
+  constructor(message: string, readonly awsName?: string) {
+    super(message);
+    this.name = 'AwsSecretsManagerError';
+  }
+}
+
 // Allowed characters are documented by AWS Secrets Manager naming rules.
 // See: https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_limits.html
 const SECRET_NAME_PATTERN = /^[A-Za-z0-9/_+=.@-]+$/;
+const ALREADY_EXISTS_ERROR_NAMES = new Set([
+  'AlreadyExistsException',
+  'ResourceExistsException'
+]);
 
 const formatDate = (value?: Date): string | undefined => {
   if (!value) {
@@ -151,24 +162,32 @@ const mapAwsError = (error: unknown, secretName?: string): never => {
   const awsError = error as AWSLikeError;
   const secretLabel = secretName ? ` for "${secretName}"` : '';
 
-  if (awsError?.name === 'AlreadyExistsException') {
-    throw new Error(`Secret${secretLabel} already exists.`);
+  if (awsError?.name && ALREADY_EXISTS_ERROR_NAMES.has(awsError.name)) {
+    throw new AwsSecretsManagerError(
+      `Secret${secretLabel} already exists.`,
+      awsError.name
+    );
   }
 
   if (awsError?.name === 'ResourceNotFoundException') {
-    throw new Error(`Secret${secretLabel} was not found.`);
+    throw new AwsSecretsManagerError(
+      `Secret${secretLabel} was not found.`,
+      awsError.name
+    );
   }
 
   if (awsError?.name === 'InvalidRequestException') {
-    throw new Error(
-      awsError.message || 'Invalid request to AWS Secrets Manager.'
+    throw new AwsSecretsManagerError(
+      awsError.message || 'Invalid request to AWS Secrets Manager.',
+      awsError.name
     );
   }
 
   if (awsError?.name === 'AccessDeniedException') {
-    throw new Error(
+    throw new AwsSecretsManagerError(
       awsError.message ||
-        'Access denied while calling AWS Secrets Manager. Verify IAM permissions.'
+        'Access denied while calling AWS Secrets Manager. Verify IAM permissions.',
+      awsError.name
     );
   }
 
@@ -444,9 +463,13 @@ export const copySecret = async (
       status: 'created'
     };
   } catch (createError: unknown) {
-    const message =
-      createError instanceof Error ? createError.message : String(createError);
-    if (!/already exists/i.test(message)) {
+    if (
+      !(
+        createError instanceof AwsSecretsManagerError &&
+        createError.awsName &&
+        ALREADY_EXISTS_ERROR_NAMES.has(createError.awsName)
+      )
+    ) {
       throw createError;
     }
 

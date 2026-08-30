@@ -377,7 +377,7 @@ describe('secretsmanager-admin', () => {
         Description: 'Copied secret'
       })
       .mockRejectedValueOnce({
-        name: 'AlreadyExistsException'
+        name: 'ResourceExistsException'
       })
       .mockResolvedValueOnce({
         Name: 'app/source',
