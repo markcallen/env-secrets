@@ -1,6 +1,7 @@
 import {
   CreateSecretCommand,
   DeleteSecretCommand,
+  DescribeSecretCommandOutput,
   DescribeSecretCommand,
   GetSecretValueCommand,
   ListSecretsCommand,
@@ -157,6 +158,37 @@ const tagsRecordToInput = (
     ? entries.map(([key, value]) => `${key}=${value}`)
     : undefined;
 };
+
+const getSecretStringValue = (
+  name: string,
+  secretString: string | undefined,
+  operation: 'copy' | 'edit' = 'edit'
+) => {
+  if (typeof secretString !== 'string') {
+    const action =
+      operation === 'copy' ? 'copied' : 'edited with append/remove';
+    throw new Error(
+      `Secret "${name}" is not stored as a SecretString value and cannot be ${action}.`
+    );
+  }
+
+  return secretString;
+};
+
+const toSecretMetadata = (
+  result: DescribeSecretCommandOutput
+): SecretMetadata => ({
+  name: result.Name,
+  arn: result.ARN,
+  description: result.Description,
+  kmsKeyId: result.KmsKeyId,
+  deletedDate: formatDate(result.DeletedDate),
+  lastChangedDate: formatDate(result.LastChangedDate),
+  lastAccessedDate: formatDate(result.LastAccessedDate),
+  createdDate: formatDate(result.CreatedDate),
+  versionIdsToStages: result.VersionIdsToStages,
+  tags: tagsToRecord(result.Tags)
+});
 
 const mapAwsError = (error: unknown, secretName?: string): never => {
   const awsError = error as AWSLikeError;
@@ -352,18 +384,7 @@ export const getSecretMetadata = async (
       new DescribeSecretCommand({ SecretId: options.name })
     );
 
-    return {
-      name: result.Name,
-      arn: result.ARN,
-      description: result.Description,
-      kmsKeyId: result.KmsKeyId,
-      deletedDate: formatDate(result.DeletedDate),
-      lastChangedDate: formatDate(result.LastChangedDate),
-      lastAccessedDate: formatDate(result.LastAccessedDate),
-      createdDate: formatDate(result.CreatedDate),
-      versionIdsToStages: result.VersionIdsToStages,
-      tags: tagsToRecord(result.Tags)
-    };
+    return toSecretMetadata(result);
   } catch (error: unknown) {
     return mapAwsError(error, options.name);
   }
@@ -404,15 +425,11 @@ export const getSecretString = async (
       new GetSecretValueCommand({ SecretId: options.name })
     );
 
-    if (typeof result.SecretString !== 'string') {
-      const action =
-        options.operation === 'copy' ? 'copied' : 'edited with append/remove';
-      throw new Error(
-        `Secret "${options.name}" is not stored as a SecretString value and cannot be ${action}.`
-      );
-    }
-
-    return result.SecretString;
+    return getSecretStringValue(
+      options.name,
+      result.SecretString,
+      options.operation
+    );
   } catch (error: unknown) {
     return mapAwsError(error, options.name);
   }
@@ -436,19 +453,26 @@ export const copySecret = async (
     targetRegion
   });
 
-  const [value, metadata] = await Promise.all([
-    getSecretString({
-      name: options.name,
-      profile: options.profile,
-      region: options.region,
-      operation: 'copy'
-    }),
-    getSecretMetadata({
-      name: options.name,
-      profile: options.profile,
-      region: options.region
-    })
-  ]);
+  const sourceClient = await createClient({
+    profile: options.profile,
+    region: options.region
+  });
+  let value: string;
+  let metadata: SecretMetadata;
+  try {
+    const [secretValueResult, metadataResult] = await Promise.all([
+      sourceClient.send(new GetSecretValueCommand({ SecretId: options.name })),
+      sourceClient.send(new DescribeSecretCommand({ SecretId: options.name }))
+    ]);
+    value = getSecretStringValue(
+      options.name,
+      secretValueResult.SecretString,
+      'copy'
+    );
+    metadata = toSecretMetadata(metadataResult);
+  } catch (error: unknown) {
+    return mapAwsError(error, options.name);
+  }
 
   const targetOptions = {
     name: options.name,
