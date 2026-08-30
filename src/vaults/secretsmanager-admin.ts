@@ -1,6 +1,7 @@
 import {
   CreateSecretCommand,
   DeleteSecretCommand,
+  DescribeSecretCommandOutput,
   DescribeSecretCommand,
   GetSecretValueCommand,
   ListSecretsCommand,
@@ -45,6 +46,21 @@ export interface SecretDeleteOptions extends AwsSecretCommandOptions {
   forceDeleteWithoutRecovery?: boolean;
 }
 
+export interface SecretCopyOptions extends AwsSecretCommandOptions {
+  name: string;
+  targetRegion: string;
+  targetKmsKeyId?: string;
+}
+
+export interface SecretCopyResult {
+  name?: string;
+  arn?: string;
+  versionId?: string;
+  sourceRegion?: string;
+  targetRegion: string;
+  status: 'created' | 'updated';
+}
+
 export interface SecretSummary {
   name: string;
   arn?: string;
@@ -70,9 +86,20 @@ interface AWSLikeError {
   message?: string;
 }
 
+class AwsSecretsManagerError extends Error {
+  constructor(message: string, readonly awsName?: string) {
+    super(message);
+    this.name = 'AwsSecretsManagerError';
+  }
+}
+
 // Allowed characters are documented by AWS Secrets Manager naming rules.
 // See: https://docs.aws.amazon.com/secretsmanager/latest/userguide/reference_limits.html
 const SECRET_NAME_PATTERN = /^[A-Za-z0-9/_+=.@-]+$/;
+const ALREADY_EXISTS_ERROR_NAMES = new Set([
+  'AlreadyExistsException',
+  'ResourceExistsException'
+]);
 
 const formatDate = (value?: Date): string | undefined => {
   if (!value) {
@@ -119,28 +146,80 @@ const tagsToRecord = (tags?: Tag[]): Record<string, string> | undefined => {
   return Object.keys(result).length > 0 ? result : undefined;
 };
 
+const tagsRecordToInput = (
+  tags?: Record<string, string>
+): string[] | undefined => {
+  if (!tags) {
+    return undefined;
+  }
+
+  const entries = Object.entries(tags);
+  return entries.length > 0
+    ? entries.map(([key, value]) => `${key}=${value}`)
+    : undefined;
+};
+
+const getSecretStringValue = (
+  name: string,
+  secretString: string | undefined,
+  operation: 'copy' | 'edit' = 'edit'
+) => {
+  if (typeof secretString !== 'string') {
+    const action =
+      operation === 'copy' ? 'copied' : 'edited with append/remove';
+    throw new Error(
+      `Secret "${name}" is not stored as a SecretString value and cannot be ${action}.`
+    );
+  }
+
+  return secretString;
+};
+
+const toSecretMetadata = (
+  result: DescribeSecretCommandOutput
+): SecretMetadata => ({
+  name: result.Name,
+  arn: result.ARN,
+  description: result.Description,
+  kmsKeyId: result.KmsKeyId,
+  deletedDate: formatDate(result.DeletedDate),
+  lastChangedDate: formatDate(result.LastChangedDate),
+  lastAccessedDate: formatDate(result.LastAccessedDate),
+  createdDate: formatDate(result.CreatedDate),
+  versionIdsToStages: result.VersionIdsToStages,
+  tags: tagsToRecord(result.Tags)
+});
+
 const mapAwsError = (error: unknown, secretName?: string): never => {
   const awsError = error as AWSLikeError;
   const secretLabel = secretName ? ` for "${secretName}"` : '';
 
-  if (awsError?.name === 'AlreadyExistsException') {
-    throw new Error(`Secret${secretLabel} already exists.`);
+  if (awsError?.name && ALREADY_EXISTS_ERROR_NAMES.has(awsError.name)) {
+    throw new AwsSecretsManagerError(
+      `Secret${secretLabel} already exists.`,
+      awsError.name
+    );
   }
 
   if (awsError?.name === 'ResourceNotFoundException') {
-    throw new Error(`Secret${secretLabel} was not found.`);
+    throw new AwsSecretsManagerError(
+      `Secret${secretLabel} was not found.`,
+      awsError.name
+    );
   }
 
   if (awsError?.name === 'InvalidRequestException') {
-    throw new Error(
-      awsError.message || 'Invalid request to AWS Secrets Manager.'
+    throw new AwsSecretsManagerError(
+      awsError.message || 'Invalid request to AWS Secrets Manager.',
+      awsError.name
     );
   }
 
   if (awsError?.name === 'AccessDeniedException') {
-    throw new Error(
+    throw new AwsSecretsManagerError(
       awsError.message ||
-        'Access denied while calling AWS Secrets Manager. Verify IAM permissions.'
+        'Access denied while calling AWS Secrets Manager. Verify IAM permissions.',
+      awsError.name
     );
   }
 
@@ -305,18 +384,7 @@ export const getSecretMetadata = async (
       new DescribeSecretCommand({ SecretId: options.name })
     );
 
-    return {
-      name: result.Name,
-      arn: result.ARN,
-      description: result.Description,
-      kmsKeyId: result.KmsKeyId,
-      deletedDate: formatDate(result.DeletedDate),
-      lastChangedDate: formatDate(result.LastChangedDate),
-      lastAccessedDate: formatDate(result.LastAccessedDate),
-      createdDate: formatDate(result.CreatedDate),
-      versionIdsToStages: result.VersionIdsToStages,
-      tags: tagsToRecord(result.Tags)
-    };
+    return toSecretMetadata(result);
   } catch (error: unknown) {
     return mapAwsError(error, options.name);
   }
@@ -343,7 +411,10 @@ export const secretExists = async (
 };
 
 export const getSecretString = async (
-  options: AwsSecretCommandOptions & { name: string }
+  options: AwsSecretCommandOptions & {
+    name: string;
+    operation?: 'copy' | 'edit';
+  }
 ): Promise<string> => {
   validateSecretName(options.name);
   debug('getSecretString called', { name: options.name });
@@ -354,15 +425,95 @@ export const getSecretString = async (
       new GetSecretValueCommand({ SecretId: options.name })
     );
 
-    if (typeof result.SecretString !== 'string') {
-      throw new Error(
-        `Secret "${options.name}" is not stored as a string value and cannot be edited with append/remove.`
-      );
-    }
-
-    return result.SecretString;
+    return getSecretStringValue(
+      options.name,
+      result.SecretString,
+      options.operation
+    );
   } catch (error: unknown) {
     return mapAwsError(error, options.name);
+  }
+};
+
+export const copySecret = async (
+  options: SecretCopyOptions
+): Promise<SecretCopyResult> => {
+  validateSecretName(options.name);
+  const targetRegion = options.targetRegion.trim();
+  if (!targetRegion) {
+    throw new Error('--target-region is required.');
+  }
+  if (options.region?.trim() === targetRegion) {
+    throw new Error('--target-region must be different from --region.');
+  }
+
+  debug('copySecret called', {
+    name: options.name,
+    sourceRegion: options.region,
+    targetRegion
+  });
+
+  const sourceClient = await createClient({
+    profile: options.profile,
+    region: options.region
+  });
+  let value: string;
+  let metadata: SecretMetadata;
+  try {
+    const [secretValueResult, metadataResult] = await Promise.all([
+      sourceClient.send(new GetSecretValueCommand({ SecretId: options.name })),
+      sourceClient.send(new DescribeSecretCommand({ SecretId: options.name }))
+    ]);
+    value = getSecretStringValue(
+      options.name,
+      secretValueResult.SecretString,
+      'copy'
+    );
+    metadata = toSecretMetadata(metadataResult);
+  } catch (error: unknown) {
+    return mapAwsError(error, options.name);
+  }
+
+  const targetOptions = {
+    name: options.name,
+    value,
+    description: metadata.description,
+    kmsKeyId: options.targetKmsKeyId,
+    profile: options.profile,
+    region: targetRegion
+  };
+
+  try {
+    const result = await createSecret({
+      ...targetOptions,
+      tags: tagsRecordToInput(metadata.tags)
+    });
+
+    return {
+      ...result,
+      sourceRegion: options.region,
+      targetRegion,
+      status: 'created'
+    };
+  } catch (createError: unknown) {
+    if (
+      !(
+        createError instanceof AwsSecretsManagerError &&
+        createError.awsName &&
+        ALREADY_EXISTS_ERROR_NAMES.has(createError.awsName)
+      )
+    ) {
+      throw createError;
+    }
+
+    const result = await updateSecret(targetOptions);
+
+    return {
+      ...result,
+      sourceRegion: options.region,
+      targetRegion,
+      status: 'updated'
+    };
   }
 };
 

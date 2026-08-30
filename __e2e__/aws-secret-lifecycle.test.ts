@@ -313,4 +313,102 @@ describe('AWS Secret Subcommand Lifecycle Args', () => {
     const eastRows = JSON.parse(eastResult.stdout) as Array<{ name: string }>;
     expect(eastRows).toEqual([]);
   });
+
+  test('should copy a secret to a target region and overwrite existing target value', async () => {
+    const secretName = `managed-secret-copy-${Date.now()}`;
+    const sourceSecret = await createTestSecret({
+      name: secretName,
+      value: '{"API_KEY":"source-value"}',
+      description: 'Secret used for copy test'
+    });
+
+    const firstCopyResult = await cliWithEnv(
+      [
+        'aws',
+        'secret',
+        'copy',
+        '-n',
+        sourceSecret.prefixedName,
+        '-r',
+        'us-east-1',
+        '--target-region',
+        'us-west-2',
+        '--output',
+        'json'
+      ],
+      getLocalStackEnv()
+    );
+    expect(firstCopyResult.code).toBe(0);
+    expect(JSON.parse(firstCopyResult.stdout)[0]).toEqual(
+      expect.objectContaining({
+        name: sourceSecret.prefixedName,
+        sourceRegion: 'us-east-1',
+        targetRegion: 'us-west-2',
+        status: 'created'
+      })
+    );
+
+    const copiedSecret = await execAwslocalCommand(
+      `awslocal secretsmanager get-secret-value --secret-id "${sourceSecret.prefixedName}" --region us-west-2 --query SecretString --output text`,
+      getLocalStackEnv()
+    );
+    expect(JSON.parse(copiedSecret.stdout.trim())).toEqual({
+      API_KEY: 'source-value'
+    });
+
+    await execAwslocalCommand(
+      `awslocal secretsmanager update-secret --secret-id "${sourceSecret.prefixedName}" --secret-string '{"API_KEY":"updated-source-value"}' --region us-east-1`,
+      getLocalStackEnv()
+    );
+
+    const secondCopyResult = await cliWithEnv(
+      [
+        'aws',
+        'secret',
+        'copy',
+        '-n',
+        sourceSecret.prefixedName,
+        '-r',
+        'us-east-1',
+        '--target-region',
+        'us-west-2',
+        '--output',
+        'json'
+      ],
+      getLocalStackEnv()
+    );
+    expect(secondCopyResult.code).toBe(0);
+    expect(JSON.parse(secondCopyResult.stdout)[0]).toEqual(
+      expect.objectContaining({
+        name: sourceSecret.prefixedName,
+        sourceRegion: 'us-east-1',
+        targetRegion: 'us-west-2',
+        status: 'updated'
+      })
+    );
+
+    const overwrittenSecret = await execAwslocalCommand(
+      `awslocal secretsmanager get-secret-value --secret-id "${sourceSecret.prefixedName}" --region us-west-2 --query SecretString --output text`,
+      getLocalStackEnv()
+    );
+    expect(JSON.parse(overwrittenSecret.stdout.trim())).toEqual({
+      API_KEY: 'updated-source-value'
+    });
+
+    const deleteTargetResult = await cliWithEnv(
+      [
+        'aws',
+        'secret',
+        'delete',
+        '-n',
+        sourceSecret.prefixedName,
+        '-r',
+        'us-west-2',
+        '--force-delete-without-recovery',
+        '--yes'
+      ],
+      getLocalStackEnv()
+    );
+    expect(deleteTargetResult.code).toBe(0);
+  });
 });

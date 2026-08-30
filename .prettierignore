@@ -5,3 +5,4 @@ website/node_modules/
 website/.docusaurus/
 coverage/
 coverage-e2e/
+.ballast/

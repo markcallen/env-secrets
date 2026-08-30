@@ -105,7 +105,7 @@ env-secrets aws -s my-app-secrets -r us-east-1 -- node app.js
 - `--no-shell` (optional): Run the program directly without a shell wrapper. Disables shell expansion — use when you do not need `$VAR` interpolation in arguments
 - `-- <program-to-run>`: The program to run with the injected environment variables (only used when `-o` is not specified)
 
-For `aws secret` management subcommands (`create`, `update`, `upsert`/`import`, `append`, `remove`, `list`, `get`, `value`, `delete`), use:
+For `aws secret` management subcommands (`create`, `update`, `upsert`/`import`, `copy`, `append`, `remove`, `list`, `get`, `value`, `delete`), use:
 
 - `-r, --region <region>` to target a specific region
 - `-p, --profile <profile>` to select credentials profile
@@ -114,7 +114,7 @@ For `aws secret` management subcommands (`create`, `update`, `upsert`/`import`, 
 These options are honored consistently on `aws secret` subcommands.
 
 `env-secrets aws -s` is for fetching/injecting secret values into a child process. Use `--no-shell` to run the program directly without a shell wrapper (disables shell expansion).  
-`env-secrets aws secret ...` is for lifecycle management commands (`create`, `update`, `upsert`/`import`, `append`, `remove`, `list`, `get`, `value`, `delete`).
+`env-secrets aws secret ...` is for lifecycle management commands (`create`, `update`, `upsert`/`import`, `copy`, `append`, `remove`, `list`, `get`, `value`, `delete`).
 
 Create a reusable config file from an existing secret name:
 
@@ -269,7 +269,17 @@ env-secrets aws secret upsert --file .env --name app/dev --output json
 - dotenv-style input is converted into key/value pairs
 - scalar input is wrapped as `{"value":"..."}`.
 
-12. **Append/remove keys on an existing JSON secret:**
+12. **Copy a secret to another region:**
+
+```bash
+# Copies app/dev from us-east-1 to us-west-2.
+# Creates the target secret if it is missing, or overwrites its SecretString if it exists.
+env-secrets aws secret copy -n app/dev -r us-east-1 --target-region us-west-2 --output json
+```
+
+Use `--target-kms-key-id` when the copied secret should use a specific KMS key in the target region.
+
+13. **Append/remove keys on an existing JSON secret:**
 
 ```bash
 # Add or overwrite one key
@@ -290,7 +300,7 @@ value never appears in shell history, process arguments, or the terminal. Use `-
 to enter the value twice and catch typos. Both flags work the same way on `secret create`
 and `secret update`.
 
-13. **View the values of a secret:**
+14. **View the values of a secret:**
 
 ```bash
 # Table output — values masked as **** by default

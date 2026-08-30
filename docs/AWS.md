@@ -154,6 +154,7 @@ In addition to injecting variables into a process, `env-secrets` can manage AWS 
 - `env-secrets aws secret create`
 - `env-secrets aws secret update`
 - `env-secrets aws secret upsert` (alias: `import`)
+- `env-secrets aws secret copy`
 - `env-secrets aws secret append`
 - `env-secrets aws secret remove`
 - `env-secrets aws secret list`
@@ -167,7 +168,7 @@ Use these options directly with each subcommand.
 ### `aws -s` vs `aws secret ...`
 
 - `env-secrets aws -s <secret-name> -- <command>`: retrieves a secret value and injects it into the environment for the spawned process (or use `-o <file>` to write exports to a file). Use `--no-shell` to run the program directly without a shell wrapper (disables shell expansion).
-- `env-secrets aws secret ...`: management commands only (`create`, `update`, `upsert/import`, `append`, `remove`, `list`, `get`, `value`, `delete`).
+- `env-secrets aws secret ...`: management commands only (`create`, `update`, `upsert/import`, `copy`, `append`, `remove`, `list`, `get`, `value`, `delete`).
 
 Example:
 
@@ -241,7 +242,15 @@ source secrets.env
 
    Optional flags: `-d/--description`, `-k/--kms-key-id`, `-t/--tag key=value` (repeatable, applies on create only).
 
-5. **Update or delete a single key in an existing JSON secret:**
+5. **Copy a secret to another region:**
+
+   ```bash
+   env-secrets aws secret copy -n my-app/dev -r us-east-1 --target-region us-west-2 --output json
+   ```
+
+   `copy` reads the source secret from `-r/--region`, writes to `--target-region`, creates the target secret if it does not exist, and overwrites the target `SecretString` if it does. Tags and description are copied on create; on overwrite, the description and secret value are updated while existing target tags are not changed. Use `--target-kms-key-id` to choose a target-region KMS key.
+
+6. **Update or delete a single key in an existing JSON secret:**
 
    Use `append` to update (or add) one key without touching the rest of the secret, and `remove` to delete one or more keys.
 
@@ -274,7 +283,7 @@ source secrets.env
    | `remove` would empty the secret (last key)                     | Error: `Cannot remove all keys from secret "…"` — use `env-secrets aws secret delete` to remove the whole secret |
    | Partial match (`remove` with some valid and some missing keys) | Succeeds; output shows `RemovedKeys` and `MissingKeys`                                                           |
 
-6. **List secrets by prefix or tag:**
+7. **List secrets by prefix or tag:**
 
    ```bash
    env-secrets aws secret list --prefix my-app/dev -r us-east-1 --output table
@@ -287,13 +296,13 @@ source secrets.env
    env-secrets aws secret list --prefix my-app/dev -r us-east-1 --output json
    ```
 
-7. **Get metadata and version info (without printing secret values):**
+8. **Get metadata and version info (without printing secret values):**
 
    ```bash
    env-secrets aws secret get -n my-app/dev/api -r us-east-1 --output json
    ```
 
-8. **Get the values of a secret:**
+9. **Get the values of a secret:**
 
    ```bash
    # Table output — values masked by default
@@ -306,15 +315,15 @@ source secrets.env
    env-secrets aws secret value -n my-app/dev/api -r us-east-1 --output json
    ```
 
-9. **Delete with explicit confirmation:**
+10. **Delete with explicit confirmation:**
 
-   ```bash
-   # With a recovery window (7–30 days)
-   env-secrets aws secret delete -n my-app/dev/raw --recovery-days 7 --yes -r us-east-1
+```bash
+# With a recovery window (7–30 days)
+env-secrets aws secret delete -n my-app/dev/raw --recovery-days 7 --yes -r us-east-1
 
-   # Permanent delete with no recovery window
-   env-secrets aws secret delete -n my-app/dev/raw --force-delete-without-recovery --yes -r us-east-1
-   ```
+# Permanent delete with no recovery window
+env-secrets aws secret delete -n my-app/dev/raw --force-delete-without-recovery --yes -r us-east-1
+```
 
 ### Secret Management Safety Notes
 
@@ -322,6 +331,7 @@ source secrets.env
 - `create`, `update`, and `append` accept `--value`, `--value-stdin`, `--file`, or `--prompt` (use only one).
 - `create` always stores `SecretString` as a JSON object.
 - `append` and `remove` require the secret value to be a JSON object.
+- `copy` copies `SecretString` payloads, including JSON secrets. It does not copy `SecretBinary` payloads. It creates a missing target-region secret and overwrites the target secret value when the target already exists.
 - `remove` will error if it would leave the secret with zero keys — use `env-secrets aws secret delete` to remove the entire secret.
 - `upsert/import --file --name` parses `export KEY=value` and `KEY=value`, stores them as one JSON secret object, ignores blank lines/comments, and reports `created`, `updated`, `skipped`, and `failed`.
 - Use `--prompt` to enter sensitive values interactively with no echo — the value is read directly from the terminal and never appears in shell history, process arguments, or any pipe. Add `--confirm` to enter the value twice and catch typos.
