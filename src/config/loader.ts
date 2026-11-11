@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { dump as dumpYaml, load as parseYaml } from 'js-yaml';
 
 import type { EnvSecretsConfig, SecretConfig } from './types';
@@ -14,9 +14,15 @@ const CONFIG_FILENAMES = [
 export const findConfigFile = (
   cwd: string = process.cwd()
 ): string | undefined => {
-  for (const filename of CONFIG_FILENAMES) {
-    const path = join(cwd, filename);
-    if (existsSync(path)) return path;
+  let directory = resolve(cwd);
+  while (true) {
+    for (const filename of CONFIG_FILENAMES) {
+      const candidate = join(directory, filename);
+      if (existsSync(candidate)) return candidate;
+    }
+    const parent = dirname(directory);
+    if (parent === directory) break;
+    directory = parent;
   }
 
   const home = homedir();
@@ -138,8 +144,10 @@ export const parseConfig = (
   return validateConfig(raw, filePath);
 };
 
-export const loadConfig = (cwd?: string): EnvSecretsConfig | undefined => {
-  const configPath = findConfigFile(cwd);
+export const loadConfig = (cwd?: string, explicitPath?: string): EnvSecretsConfig | undefined => {
+  const configPath = explicitPath
+    ? (isAbsolute(explicitPath) ? explicitPath : resolve(cwd ?? process.cwd(), explicitPath))
+    : findConfigFile(cwd);
   if (!configPath) return undefined;
 
   const content = readFileSync(configPath, 'utf8');
