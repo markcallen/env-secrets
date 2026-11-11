@@ -145,6 +145,7 @@ const awsCommand = program
   )
   .option('-p, --profile <profile>', 'profile to use')
   .option('-r, --region <region>', 'region to use')
+  .option('--config <path>', 'explicit env-secrets YAML or JSON configuration file')
   .option(
     '-o, --output <file>',
     'output secrets to file instead of environment variables'
@@ -160,7 +161,7 @@ const awsCommand = program
   .action(async (program, options) => {
     let config;
     try {
-      config = loadConfig();
+      config = loadConfig(undefined, options.config);
     } catch (err) {
       exitWithError(err);
       return;
