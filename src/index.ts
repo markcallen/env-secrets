@@ -235,7 +235,7 @@ const awsCommand = program
         profile: effectiveProfile,
         region: effectiveRegion
       });
-      debug(secrets);
+      debug('Retrieved secret %s', secretEntry.name);
       const filtered = filterSecretKeys(
         secrets as Record<string, unknown>,
         secretEntry.keys
